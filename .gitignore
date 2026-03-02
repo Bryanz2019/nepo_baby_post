@@ -1,0 +1,30 @@
+.DS_store
+
+# notebooks junk
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# profiling outputs
+_profiling_output/
+
+# environment file
+.env
+
+# large imdb dumps
+*.tsv.gz
+*.xlsx
+*.xlsb
+*.zip
+*.csv
+
+# ignore all processed data except for the following files
+!Data/raw/processed/parent_ca.csv
+!Data/raw/processed/relative_ca.csv
+!Data/raw/processed/title_ratings.csv
+!Data/raw/processed/parent_us.csv
+!Data/raw/processed/relative_us.csv
+!Data/raw/processed/title_tvSeries.csv
+!Data/raw/processed/person_awards_noms.csv
+!Data/raw/processed/title_awards_noms.csv
+!Data/raw/processed/person.csv
+!Data/raw/processed/title_movie.csv
