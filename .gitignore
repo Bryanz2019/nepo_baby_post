@@ -9,6 +9,15 @@ _profiling_output/
 
 # environment file
 .env
+config.json
+
+# dependencies
+node_modules/
+*.log
+
+# production
+/dist
+/build
 
 # large imdb dumps
 *.tsv.gz

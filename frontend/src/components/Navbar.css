@@ -1,0 +1,29 @@
+.navbar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    background: #333;color: white;
+}
+.brand {
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+}
+.nav-menu {
+    display: flex;
+    gap: 20%;
+    list-style: none;
+    margin-right: 20%;
+    margin-left: 10%;
+}
+.nav-link {
+    color: white;
+    font-size: x-large;
+    text-decoration: none;
+}
+.nav-link.active {
+    color: #4CAF50;
+    border-bottom: 2px solid #4CAF50;
+}
