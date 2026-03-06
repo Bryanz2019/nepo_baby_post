@@ -10,8 +10,12 @@ assignees: ''
 ## Summary
 Brief description of the feature.
 
-## Problem
+## User story
 What problem are we solving?
+
+## Related Task / Issue:  
+- Task: #___
+- Additional context: (link if needed)
 
 ## Proposed Solution
 High-level approach.

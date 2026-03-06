@@ -12,24 +12,16 @@ assignees: ''
 - Feature / Bug / Refactor:  
 - Related issue: #___  
 
-## Why
-<!-- One or two sentences explaining why this change is needed -->
+## Changes
+<!-- Select all that apply -->
+- [ ] Backend change
+- [ ] Frontend change
+- [ ] Database change
+- [ ] API change
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Refactor / cleanup 
 
-## What Changed
-<!-- Key changes (backend, frontend, DB) -->
-- Backend: …
-- Frontend: …
-- Database: …  
-
-## How to Test
-<!-- Steps reviewers can follow -->
-1. Pull branch  
-2. Run backend/frontend  
-3. Verify functionality  
-
-Test Coverage:
-- [ ] Manual testing done  
-- [ ] Unit/integration tests added (if applicable)  
 
 ## Notes / Review Focus
 <!-- Anything reviewers should pay attention to -->
@@ -38,6 +30,10 @@ Test Coverage:
 - Feedback wanted on: …  
 
 ## Checklist
-- [ ] Code runs locally  
-- [ ] Lint passes / no console errors  
-- [ ] README updated (if needed)
+- [ ] Code runs locally
+- [ ] Manual testing completed
+- [ ] Unit / integration tests added or updated
+
+
+## Screenshots
+<!-- Add screenshots if needed-->
