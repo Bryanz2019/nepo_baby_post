@@ -1,0 +1,65 @@
+name: Feature Request
+description: Suggest an idea for this project
+title: "[Feature]: "
+labels: ["enhancement"]
+
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Brief description of the feature
+      placeholder: What feature would you like to add?
+    validations:
+      required: true
+
+  - type: textarea
+    id: user_story
+    attributes:
+      label: User Story
+      description: What problem are we solving?
+      placeholder: As a user, I want... so that...
+
+  - type: textarea
+    id: related
+    attributes:
+      label: Related Task / Issue
+      description: Link related tasks or issues
+      placeholder: |
+        Task: #123
+        Additional context link:
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: High-level approach to implement this feature
+
+  - type: checkboxes
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Conditions that must be met for this feature
+      options:
+        - label: Feature implementation completed
+        - label: Code reviewed
+        - label: Tests added or updated
+        - label: Documentation updated
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation Notes
+      description: Technical considerations, dependencies, risks
+
+  - type: textarea
+    id: blockers
+    attributes:
+      label: Blockers
+      description: Links to related issues blocking progress
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Add screenshots or any other context
