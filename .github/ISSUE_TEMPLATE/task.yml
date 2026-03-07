@@ -1,0 +1,69 @@
+name: Task
+description: Create a development task
+title: "[Task]: "
+labels: ["task"]
+
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Task Summary
+      description: Brief description of the task
+      placeholder: What needs to be done?
+    validations:
+      required: true
+
+  - type: textarea
+    id: related
+    attributes:
+      label: Related Feature / Issue
+      description: Link related feature request or bug
+      placeholder: |
+        Feature: #123
+        Bug: #45
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Low
+        - Medium
+        - High
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Task Type
+      options:
+        - Backend
+        - Frontend
+        - Database
+        - Documentation
+        - Testing
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Task Checklist
+      description: Steps required to complete the task
+      options:
+        - label: Implementation completed
+        - label: Code reviewed
+        - label: Tests added or updated
+        - label: Documentation updated
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Technical details, dependencies, or risks
+
+  - type: textarea
+    id: blockers
+    attributes:
+      label: Blockers
+      description: Link issues blocking this task
+      placeholder: "#12"
