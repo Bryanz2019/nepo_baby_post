@@ -16,7 +16,7 @@ jobs:
           PROJECT_NUMBER: 1
           ISSUE_NODE_ID: ${{ github.event.issue.node_id }}
           EVENT_ACTION: ${{ github.event.action }}
-          ASSIGNEES_JSON: ${{ github.event.issue.assignees }}
+          ASSIGNEES_JSON: ${{ toJson(github.event.issue.assignees) }}
         run: |
           ProjectId=$(gh api graphql -f query='
             query($owner: String!, $number: Int!) {
