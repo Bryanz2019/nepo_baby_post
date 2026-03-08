@@ -11,12 +11,12 @@ jobs:
       - name: Move Issue in Project
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.PROJECT_AUTOMATION_TOKEN }}
+          GH_TOKEN: '${{ secrets.PROJECT_AUTOMATION_TOKEN }}'
           OWNER: "barefishe" 
           PROJECT_NUMBER: 1
-          ISSUE_NODE_ID: ${{ github.event.issue.node_id }}
-          EVENT_ACTION: ${{ github.event.action }}
-          ASSIGNEES_JSON: ${{ toJson(github.event.issue.assignees) }}
+          ISSUE_NODE_ID: '${{ github.event.issue.node_id }}'
+          EVENT_ACTION: '${{ github.event.action }}'
+          ASSIGNEES_JSON: '${{ toJson(github.event.issue.assignees) }}'
         run: |
           ProjectId=$(gh api graphql -f query='
             query($owner: String!, $number: Int!) {
