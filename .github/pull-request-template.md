@@ -10,6 +10,7 @@ assignees: ''
 ## Summary
 <!-- Short description of what this PR does -->
 - Feature / Bug / Refactor:  
+- Related feature: #___
 - Related issue: #___  
 
 ## Changes
@@ -30,10 +31,12 @@ assignees: ''
 - Feedback wanted on: …  
 
 ## Checklist
+- [ ] All associated acceptance critierias have been met.
 - [ ] Code runs locally
-- [ ] Manual testing completed
-- [ ] Unit / integration tests added or updated
+- [ ] Manual testing completed. No error is introduced. Does not break existing Code.
+- [ ] Unit / integration tests added or updated **(Optional)**
 
 
 ## Screenshots
 <!-- Add screenshots if needed-->
+- If not applicable, explain briefly:
