@@ -140,7 +140,34 @@ def load_tv_series():
     conn.close()
 
 
+# ------------------------------------------------------------------
+# Wikidata people → raw.person
+# ------------------------------------------------------------------
+def load_people():
+    print("Loading people...")
+    conn = get_conn()
+    ensure_schema(conn)
 
+    drop_table_if_exists(conn, RAW_SCHEMA, "person")
+
+    ensure_table(conn, f"""
+        CREATE TABLE {RAW_SCHEMA}.person (
+            person TEXT,
+            name TEXT,
+            gender TEXT,
+            birthDate TEXT,
+            IMDb TEXT
+        );
+    """)
+
+    path = os.path.join(DATA_DIR, "person.csv")
+
+    for i, chunk in enumerate(pd.read_csv(path, chunksize=100_000)):
+        df = chunk[["person", "name", "gender", "birthDate", "IMDb"]].copy()
+        copy_from_df(conn, df, f"{RAW_SCHEMA}.person")
+        print(f"  Loaded person chunk {i + 1}")
+
+    conn.close()
 
 # ------------------------------------------------------------------
 # Wikidata person images → raw.person_image
