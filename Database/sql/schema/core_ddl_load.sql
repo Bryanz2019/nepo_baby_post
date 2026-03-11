@@ -28,7 +28,7 @@ CREATE SCHEMA IF NOT EXISTS err;
 
 -------------------- {core.person} ---------------------
 -- OWNER: <Emma>
--- SOURCE: raw.person
+-- SOURCE: raw.person, raw.person_image
 -- DEPENDS ON: (none)
 
 DROP TABLE IF EXISTS core.person CASCADE;
@@ -38,31 +38,29 @@ CREATE TABLE IF NOT EXISTS core.person (
     name        VARCHAR(60) NOT NULL,
     gender      VARCHAR(20),
     birthdate   DATE,
-    nconst      VARCHAR(12)          -- IMDb nconst (nullable)
+    nconst      VARCHAR(12),
+    image_url   TEXT
 );
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_person_name
     ON core.person (name);
 
--- Load (dedupe: if duplicate person_id + birthdate, keep 1 row; prefer earliest birthdate overall)
--- Load (dedupe: one row per person; earliest birthdate; filter out invalid birthDate strings)
--- Load (extract QID via substring; enforce Q+digits; filter bad birthDate + gender URI; dedupe)
+-- Load
 INSERT INTO core.person (
     person_id,
     name,
     gender,
     birthdate,
-    nconst
+    nconst,
+    image_url
 )
 WITH cleaned AS (
     SELECT
         regexp_replace(trim(p.person), '^.*/(Q[0-9]+)$', '\1') AS person_id,
         TRIM(p.name)                                       AS name,
-
         NULLIF(TRIM(p.gender), '')                         AS gender,
         TRIM(p.gender)                                     AS gender_raw,
-
         CASE
             WHEN p.birthDate IS NULL OR NULLIF(TRIM(p.birthDate), '') IS NULL THEN NULL
             WHEN TRIM(p.birthDate) ~ '^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$'
@@ -70,12 +68,14 @@ WITH cleaned AS (
             ELSE NULL
         END                                                AS birthdate,
         TRIM(p.birthDate)                                  AS birthdate_raw,
-
         CASE
             WHEN TRIM(p.IMDb) ~ '^nm[0-9]+$' THEN TRIM(p.IMDb)
             ELSE NULL
-        END                                                AS nconst
+        END                                                AS nconst,
+        NULLIF(TRIM(pi.imageUrl), '')                      AS image_url
     FROM raw.person p
+    LEFT JOIN raw.person_image pi
+        ON TRIM(pi.person) = TRIM(p.person)
     WHERE p.person IS NOT NULL
       AND NULLIF(TRIM(p.name), '') IS NOT NULL
 ),
@@ -83,18 +83,13 @@ filtered AS (
     SELECT *
     FROM cleaned
     WHERE
-        -- enforce Q + digits (and ensure extraction succeeded)
         person_id IS NOT NULL
         AND person_id ~ '^Q[0-9]+$'
-
-        -- FILTER OUT: birthDate exists but isn't parseable
         AND NOT (
             birthdate_raw IS NOT NULL
             AND birthdate_raw <> ''
             AND birthdate IS NULL
         )
-
-        -- FILTER OUT: gender looks like a URI (starts with http)
         AND NOT (
             gender_raw IS NOT NULL
             AND gender_raw <> ''
@@ -108,11 +103,13 @@ ranked AS (
         f.gender,
         f.birthdate,
         f.nconst,
+        f.image_url,
         ROW_NUMBER() OVER (
             PARTITION BY f.person_id
             ORDER BY
-                f.birthdate NULLS LAST,     -- earliest birthdate wins
-                (f.nconst IS NULL),         -- prefer having nconst
+                f.birthdate NULLS LAST,
+                (f.nconst IS NULL),
+                (f.image_url IS NULL),
                 f.nconst,
                 f.name,
                 f.gender
@@ -124,7 +121,8 @@ SELECT
     name,
     gender,
     birthdate,
-    nconst
+    nconst,
+    image_url
 FROM ranked
 WHERE rn = 1;
 
