@@ -1,29 +1,19 @@
 .navbar {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
     justify-content: space-between;
-    padding: 1rem;
-    background: #333;color: white;
-}
-.brand {
-    color: white;
-    text-decoration: none;
-    font-weight: bold;
+    height: 20vh;
+    width: 100vw;
+    position: sticky;
+    top: 0;
+    padding: 0;
 }
 .nav-menu {
     display: flex;
-    gap: 20%;
-    list-style: none;
+    justify-content: center;
+    align-items: center;
+    gap: 10%;
     margin-right: 20%;
-    margin-left: 10%;
-}
-.nav-link {
-    color: white;
-    font-size: x-large;
-    text-decoration: none;
-}
-.nav-link.active {
-    color: #4CAF50;
-    border-bottom: 2px solid #4CAF50;
+    margin-left: 20%;
 }
