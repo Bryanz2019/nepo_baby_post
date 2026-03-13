@@ -642,7 +642,108 @@ WHERE r.tconst IS NOT NULL
       WHERE t.tconst = TRIM(r.tconst)
   );
 
+-------------------- {core.mv_collaborator_pairs} ---------------------
+-- OWNER: Xiang
+-- SOURCE: 
+-- DEPENDS ON: core.principal
 
+CREATE MATERIALIZED VIEW core.mv_collaborator_pairs AS
+SELECT
+   p1.tconst,
+   p1.nconst AS nconst_1,
+   p2.nconst AS nconst_2
+FROM core.principal p1
+JOIN core.principal p2
+ ON p1.tconst = p2.tconst
+AND p1.nconst < p2.nconst;
+
+
+CREATE INDEX idx_mv_collab_tconst
+ON core.mv_collaborator_pairs (tconst);
+
+
+CREATE INDEX idx_mv_collab_nconst1
+ON core.mv_collaborator_pairs (nconst_1);
+
+
+CREATE INDEX idx_mv_collab_nconst2
+ON core.mv_collaborator_pairs (nconst_2);
+
+-------------------- {core.mv_relative_collaborator_pairs} ---------------------
+-- OWNER: Xiang
+-- SOURCE: 
+-- DEPENDS ON: core.mv_collaborator_pairs, core.person, core.kinship
+
+CREATE MATERIALIZED VIEW core.mv_relative_collaborator_pairs AS
+   SELECT
+       cp.tconst,
+       p1.person_id AS person_id_1,
+       p1.name AS person_name_1,
+       p2.person_id AS person_id_2,
+       p2.name AS person_name_2,
+       k.kinship
+   FROM core.mv_collaborator_pairs cp
+   JOIN core.person p1
+     ON p1.nconst = cp.nconst_1
+   JOIN core.person p2
+     ON p2.nconst = cp.nconst_2
+   JOIN core.kinship k
+     ON (k.person_id = p1.person_id AND k.related_person_id = p2.person_id)
+
+
+   UNION ALL
+
+
+   SELECT
+       cp.tconst,
+       p1.person_id AS person_id_1,
+       p1.name AS person_name_1,
+       p2.person_id AS person_id_2,
+       p2.name AS person_name_2,
+       k.kinship
+   FROM core.mv_collaborator_pairs cp
+   JOIN core.person p1
+     ON p1.nconst = cp.nconst_1
+   JOIN core.person p2
+     ON p2.nconst = cp.nconst_2
+   JOIN core.kinship k
+     ON (k.person_id = p2.person_id AND k.related_person_id = p1.person_id);
+
+
+CREATE INDEX idx_mv_relative_collaborator_pairs_tconst
+ON core.mv_relative_collaborator_pairs (tconst);
+
+
+-------------------- {core.collaboration} ---------------------
+-- OWNER: Bryan
+-- SOURCE: 
+-- DEPENDS ON: core.principal
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS core.collaboration AS
+WITH principal_dedup AS (
+   SELECT DISTINCT tconst, nconst
+   FROM core.principal
+),
+pair_counts AS (
+   SELECT
+       p1.nconst AS person_id,
+       p2.nconst AS colleague_id,
+       COUNT(*) AS total_collaborations
+   FROM principal_dedup p1
+       JOIN principal_dedup p2 ON p1.tconst = p2.tconst
+   WHERE p1.nconst < p2.nconst
+   GROUP BY p1.nconst, p2.nconst
+   HAVING COUNT(*) >= 2
+)
+SELECT person_id, colleague_id, total_collaborations
+FROM pair_counts;
+
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mv_collab_person
+ ON core.collaboration (person_id);
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mv_collab_colleague
+ ON core.collaboration (colleague_id);
 
 
 /**************************************************************
