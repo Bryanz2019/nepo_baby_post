@@ -321,15 +321,19 @@ def load_spouses():
     ensure_table(conn, f"""
         CREATE TABLE {RAW_SCHEMA}.spouse (
             personId   TEXT,
-            spouseId  TEXT
+            spouseId  TEXT,
+            marriage_start TEXT
+
         );
     """)
 
     path = os.path.join(DATA_DIR, "person_spouses.csv")
 
     for i, chunk in enumerate(pd.read_csv(path, chunksize=100_000)):
-        df = chunk[["person_qid", "spouse_qid"]].rename(
-            columns={"person_qid": "personId", "spouse_qid": "spouseId"}
+        df = chunk[["person_qid", "spouse_qid","marriage_start"]].rename(
+            columns={"person_qid": "personId", "spouse_qid": "spouseId"
+                     
+                     ,"marriage_start": "marriageStart"}
         ).copy()
         copy_from_df(conn, df, f"{RAW_SCHEMA}.spouse")
         print(f"  Loaded spouse chunk {i + 1}")
