@@ -309,6 +309,34 @@ def load_relative():
 
 
 # ------------------------------------------------------------------
+# Wikidata spouse → raw.spouse
+# ------------------------------------------------------------------
+def load_spouses():
+    print("Loading spouses...")
+    conn = get_conn()
+    ensure_schema(conn)
+
+    drop_table_if_exists(conn, RAW_SCHEMA, "spouse")
+
+    ensure_table(conn, f"""
+        CREATE TABLE {RAW_SCHEMA}.spouse (
+            personId   TEXT,
+            spouseId  TEXT
+        );
+    """)
+
+    path = os.path.join(DATA_DIR, "person_spouses.csv")
+
+    for i, chunk in enumerate(pd.read_csv(path, chunksize=100_000)):
+        df = chunk[["person_qid", "spouse_qid"]].rename(
+            columns={"person_qid": "personId", "spouse_qid": "spouseId"}
+        ).copy()
+        copy_from_df(conn, df, f"{RAW_SCHEMA}.spouse")
+        print(f"  Loaded spouse chunk {i + 1}")
+
+    conn.close()
+
+# ------------------------------------------------------------------
 # IMDb principals → raw.principal
 # ------------------------------------------------------------------
 def load_principal():
@@ -460,12 +488,13 @@ if __name__ == "__main__":
     # load_imdb_titles()
     # load_tv_series()
     # load_people()
-    load_person_images()       
+    # load_person_images()       
     # load_principal()
     # load_ratings()
     # load_movie_award()
     # load_people_awards()
     # load_parent()
     # load_relative()
+    load_spouses()
 
     print("✅ Loader finished")

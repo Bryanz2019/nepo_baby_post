@@ -401,6 +401,24 @@ WHERE (d.person_id, d.related_person_id) NOT IN (
 );
 
 
+-- -- -----------------------------
+-- -- spouse: from raw.spouse
+-- -- -----------------------------
+INSERT INTO core.relationship (person_id, related_person_id, relationship)
+SELECT DISTINCT
+    TRIM(s.personid)  AS person_id,
+    TRIM(s.spouseid) AS related_person_id,
+    'spouse'         AS relationship
+FROM raw.spouse s
+WHERE s.personid  IS NOT NULL
+  AND s.spouseid IS NOT NULL
+  AND TRIM(s.personid)  ~ '^Q[0-9]+$'
+  AND TRIM(s.spouseid) ~ '^Q[0-9]+$'
+  AND TRIM(s.personid) <> TRIM(s.spouseid)
+  AND EXISTS (SELECT 1 FROM core.person p WHERE p.person_id = TRIM(s.personid))
+  AND EXISTS (SELECT 1 FROM core.person p WHERE p.person_id = TRIM(s.spouseid))
+ON CONFLICT (person_id, related_person_id) DO NOTHING;
+
 -------------------- {core.personaward} ---------------------
 -- OWNER: <Xiang>
 -- SOURCE: raw.peopleaward
