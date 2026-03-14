@@ -384,7 +384,7 @@ FROM parent_edges e;
 
 
 -- -- -----------------------------
--- -- siblings: from raw.spouse
+-- -- spouse: from raw.spouse
 -- -- -----------------------------
 INSERT INTO core.relationship (person_id, related_person_id, relationship)
 SELECT DISTINCT
