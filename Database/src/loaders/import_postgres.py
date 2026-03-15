@@ -169,6 +169,32 @@ def load_people():
 
     conn.close()
 
+# ------------------------------------------------------------------
+# Wikidata person images → raw.person_image
+# ------------------------------------------------------------------
+def load_person_images():
+    print("Loading person images...")
+    conn = get_conn()
+    ensure_schema(conn)
+
+    drop_table_if_exists(conn, RAW_SCHEMA, "person_image")
+
+    ensure_table(conn, f"""
+        CREATE TABLE {RAW_SCHEMA}.person_image (
+            person    TEXT,
+            imageUrl  TEXT
+        );
+    """)
+
+    path = os.path.join(DATA_DIR, "person_images.csv")
+
+    for i, chunk in enumerate(pd.read_csv(path, chunksize=100_000)):
+        df = chunk[["person", "imageUrl"]].copy()
+        copy_from_df(conn, df, f"{RAW_SCHEMA}.person_image")
+        print(f"  Loaded person image chunk {i + 1}")
+
+    conn.close()
+
 # # ------------------------------------------------------------------
 # # Parent–child relationships → raw.relationship
 # # ------------------------------------------------------------------
@@ -431,14 +457,15 @@ def load_people_awards():
 # Main
 # ------------------------------------------------------------------
 if __name__ == "__main__":
-    load_imdb_titles()
-    load_tv_series()
-    load_people()
-    load_principal()
-    load_ratings()
-    load_movie_award()
-    load_people_awards()
-    load_parent()
-    load_relative()
+    # load_imdb_titles()
+    # load_tv_series()
+    # load_people()
+    load_person_images()       
+    # load_principal()
+    # load_ratings()
+    # load_movie_award()
+    # load_people_awards()
+    # load_parent()
+    # load_relative()
 
     print("✅ Loader finished")

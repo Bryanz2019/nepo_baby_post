@@ -37,3 +37,4 @@ node_modules/
 !Data/raw/processed/title_awards_noms.csv
 !Data/raw/processed/person.csv
 !Data/raw/processed/title_movie.csv
+!Data/raw/processed/person_images.csv

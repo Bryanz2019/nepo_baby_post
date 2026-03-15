@@ -28,7 +28,7 @@ CREATE SCHEMA IF NOT EXISTS err;
 
 -------------------- {core.person} ---------------------
 -- OWNER: <Emma>
--- SOURCE: raw.person
+-- SOURCE: raw.person, raw.person_image
 -- DEPENDS ON: (none)
 
 DROP TABLE IF EXISTS core.person CASCADE;
@@ -38,31 +38,29 @@ CREATE TABLE IF NOT EXISTS core.person (
     name        VARCHAR(60) NOT NULL,
     gender      VARCHAR(20),
     birthdate   DATE,
-    nconst      VARCHAR(12)          -- IMDb nconst (nullable)
+    nconst      VARCHAR(12),
+    image_url   TEXT
 );
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_person_name
     ON core.person (name);
 
--- Load (dedupe: if duplicate person_id + birthdate, keep 1 row; prefer earliest birthdate overall)
--- Load (dedupe: one row per person; earliest birthdate; filter out invalid birthDate strings)
--- Load (extract QID via substring; enforce Q+digits; filter bad birthDate + gender URI; dedupe)
+-- Load
 INSERT INTO core.person (
     person_id,
     name,
     gender,
     birthdate,
-    nconst
+    nconst,
+    image_url
 )
 WITH cleaned AS (
     SELECT
         regexp_replace(trim(p.person), '^.*/(Q[0-9]+)$', '\1') AS person_id,
         TRIM(p.name)                                       AS name,
-
         NULLIF(TRIM(p.gender), '')                         AS gender,
         TRIM(p.gender)                                     AS gender_raw,
-
         CASE
             WHEN p.birthDate IS NULL OR NULLIF(TRIM(p.birthDate), '') IS NULL THEN NULL
             WHEN TRIM(p.birthDate) ~ '^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$'
@@ -70,12 +68,14 @@ WITH cleaned AS (
             ELSE NULL
         END                                                AS birthdate,
         TRIM(p.birthDate)                                  AS birthdate_raw,
-
         CASE
             WHEN TRIM(p.IMDb) ~ '^nm[0-9]+$' THEN TRIM(p.IMDb)
             ELSE NULL
-        END                                                AS nconst
+        END                                                AS nconst,
+        NULLIF(TRIM(pi.imageUrl), '')                      AS image_url
     FROM raw.person p
+    LEFT JOIN raw.person_image pi
+        ON TRIM(pi.person) = TRIM(p.person)
     WHERE p.person IS NOT NULL
       AND NULLIF(TRIM(p.name), '') IS NOT NULL
 ),
@@ -83,18 +83,13 @@ filtered AS (
     SELECT *
     FROM cleaned
     WHERE
-        -- enforce Q + digits (and ensure extraction succeeded)
         person_id IS NOT NULL
         AND person_id ~ '^Q[0-9]+$'
-
-        -- FILTER OUT: birthDate exists but isn't parseable
         AND NOT (
             birthdate_raw IS NOT NULL
             AND birthdate_raw <> ''
             AND birthdate IS NULL
         )
-
-        -- FILTER OUT: gender looks like a URI (starts with http)
         AND NOT (
             gender_raw IS NOT NULL
             AND gender_raw <> ''
@@ -108,11 +103,13 @@ ranked AS (
         f.gender,
         f.birthdate,
         f.nconst,
+        f.image_url,
         ROW_NUMBER() OVER (
             PARTITION BY f.person_id
             ORDER BY
-                f.birthdate NULLS LAST,     -- earliest birthdate wins
-                (f.nconst IS NULL),         -- prefer having nconst
+                f.birthdate NULLS LAST,
+                (f.nconst IS NULL),
+                (f.image_url IS NULL),
                 f.nconst,
                 f.name,
                 f.gender
@@ -124,7 +121,8 @@ SELECT
     name,
     gender,
     birthdate,
-    nconst
+    nconst,
+    image_url
 FROM ranked
 WHERE rn = 1;
 
@@ -644,7 +642,108 @@ WHERE r.tconst IS NOT NULL
       WHERE t.tconst = TRIM(r.tconst)
   );
 
+-------------------- {core.mv_collaborator_pairs} ---------------------
+-- OWNER: Xiang
+-- SOURCE: 
+-- DEPENDS ON: core.principal
 
+CREATE MATERIALIZED VIEW core.mv_collaborator_pairs AS
+SELECT
+   p1.tconst,
+   p1.nconst AS nconst_1,
+   p2.nconst AS nconst_2
+FROM core.principal p1
+JOIN core.principal p2
+ ON p1.tconst = p2.tconst
+AND p1.nconst < p2.nconst;
+
+
+CREATE INDEX idx_mv_collab_tconst
+ON core.mv_collaborator_pairs (tconst);
+
+
+CREATE INDEX idx_mv_collab_nconst1
+ON core.mv_collaborator_pairs (nconst_1);
+
+
+CREATE INDEX idx_mv_collab_nconst2
+ON core.mv_collaborator_pairs (nconst_2);
+
+-------------------- {core.mv_relative_collaborator_pairs} ---------------------
+-- OWNER: Xiang
+-- SOURCE: 
+-- DEPENDS ON: core.mv_collaborator_pairs, core.person, core.kinship
+
+CREATE MATERIALIZED VIEW core.mv_relative_collaborator_pairs AS
+   SELECT
+       cp.tconst,
+       p1.person_id AS person_id_1,
+       p1.name AS person_name_1,
+       p2.person_id AS person_id_2,
+       p2.name AS person_name_2,
+       k.kinship
+   FROM core.mv_collaborator_pairs cp
+   JOIN core.person p1
+     ON p1.nconst = cp.nconst_1
+   JOIN core.person p2
+     ON p2.nconst = cp.nconst_2
+   JOIN core.kinship k
+     ON (k.person_id = p1.person_id AND k.related_person_id = p2.person_id)
+
+
+   UNION ALL
+
+
+   SELECT
+       cp.tconst,
+       p1.person_id AS person_id_1,
+       p1.name AS person_name_1,
+       p2.person_id AS person_id_2,
+       p2.name AS person_name_2,
+       k.kinship
+   FROM core.mv_collaborator_pairs cp
+   JOIN core.person p1
+     ON p1.nconst = cp.nconst_1
+   JOIN core.person p2
+     ON p2.nconst = cp.nconst_2
+   JOIN core.kinship k
+     ON (k.person_id = p2.person_id AND k.related_person_id = p1.person_id);
+
+
+CREATE INDEX idx_mv_relative_collaborator_pairs_tconst
+ON core.mv_relative_collaborator_pairs (tconst);
+
+
+-------------------- {core.collaboration} ---------------------
+-- OWNER: Bryan
+-- SOURCE: 
+-- DEPENDS ON: core.principal
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS core.collaboration AS
+WITH principal_dedup AS (
+   SELECT DISTINCT tconst, nconst
+   FROM core.principal
+),
+pair_counts AS (
+   SELECT
+       p1.nconst AS person_id,
+       p2.nconst AS colleague_id,
+       COUNT(*) AS total_collaborations
+   FROM principal_dedup p1
+       JOIN principal_dedup p2 ON p1.tconst = p2.tconst
+   WHERE p1.nconst < p2.nconst
+   GROUP BY p1.nconst, p2.nconst
+   HAVING COUNT(*) >= 2
+)
+SELECT person_id, colleague_id, total_collaborations
+FROM pair_counts;
+
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mv_collab_person
+ ON core.collaboration (person_id);
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mv_collab_colleague
+ ON core.collaboration (colleague_id);
 
 
 /**************************************************************
