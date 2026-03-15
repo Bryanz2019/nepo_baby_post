@@ -38,3 +38,4 @@ node_modules/
 !Data/raw/processed/person.csv
 !Data/raw/processed/title_movie.csv
 !Data/raw/processed/person_images.csv
+!Data/raw/processed/person_spouses.csv
