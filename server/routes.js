@@ -15,6 +15,10 @@ const connection = new Pool({
 connection.connect((err) => err && console.log(err));
 
 
+/***************************************************
+ * NEED TO TEST AGAIN after new loader is completed*
+ ***************************************************/
+
 /*************
  * Home page *
  *************/
@@ -337,9 +341,121 @@ const advancedSearch = async function(req, res) {
 // Route 7: GET /person/:person_id
 const getPersonProfile = async function(req, res) {
   connection.query(`
-    SELECT *
-    FROM core.person
-    LIMIT 10
+    WITH base_person AS (
+      SELECT p.person_id, p.nconst, p.name, p.birthdate,
+              COALESCE(p.image_url,
+                      'https://static.wikia.nocookie.net/pbskidsgo/images/5/57/Curious-George.jpg/revision/latest/scale-to-width-down/250?cb=20120712224008'
+              ) AS image_url
+      FROM core.person p
+      WHERE p.person_id = ${req.params.person_id}
+    ),
+
+
+        profession_counts AS (
+            SELECT pr.nconst, pr.category, COUNT(*) AS category_count
+            FROM core.principal pr
+                    JOIN base_person bp ON bp.nconst = pr.nconst
+            WHERE pr.category NOT IN ('self', 'archive_footage')
+            GROUP BY pr.nconst, pr.category
+        ),
+
+
+        profession_agg AS (
+            SELECT nconst, STRING_AGG(category, ', ' ORDER BY category_count DESC, category) AS professions
+            FROM profession_counts
+            GROUP BY nconst
+        ),
+
+
+        kinship_summary AS (
+            SELECT
+                        COUNT(*) FILTER (WHERE k.kinship = 'PARENT')      AS parent_count,
+                        COUNT(*) FILTER (WHERE k.kinship = 'GRANDPARENT') AS grandparent_count,
+                        COUNT(*) FILTER (WHERE k.kinship = 'RELATIVE')    AS relative_count
+            FROM core.kinship k
+                    JOIN base_person bp ON bp.person_id = k.person_id
+        ),
+
+
+        career_summary AS (
+            SELECT
+                COUNT(DISTINCT pr.tconst)                                              AS total_titles,
+                COUNT(DISTINCT CASE WHEN pr.category = 'actor'    THEN pr.tconst END) AS acting_titles,
+                COUNT(DISTINCT CASE WHEN pr.category = 'director' THEN pr.tconst END) AS directing_titles,
+                MIN(t.start_year)                                                      AS career_start_year,
+                MAX(t.start_year)                                                      AS latest_title_year,
+                AVG(rt.average_rating)::numeric(10,2)                                 AS avg_rating,
+                SUM(rt.num_votes)                                                      AS total_votes
+            FROM core.principal pr
+                    JOIN base_person bp        ON bp.nconst   = pr.nconst
+                    LEFT JOIN core.title t     ON t.tconst    = pr.tconst
+                    LEFT JOIN core.rating rt   ON rt.tconst   = pr.tconst
+            WHERE pr.category NOT IN ('self')
+        ),
+
+
+        top_titles AS (
+            SELECT
+                t.tconst, t.primary_title, t.title_type, t.start_year,
+                pr.category, rt.average_rating, rt.num_votes
+            FROM core.principal pr
+                    JOIN base_person bp        ON bp.nconst   = pr.nconst
+                    JOIN core.title t          ON t.tconst    = pr.tconst
+                    LEFT JOIN core.rating rt   ON rt.tconst   = t.tconst
+            ORDER BY rt.average_rating DESC NULLS LAST,
+                    rt.num_votes      DESC NULLS LAST,
+                    t.start_year      DESC NULLS LAST
+            LIMIT 20
+        )
+
+
+    SELECT
+      bp.person_id,
+      bp.name                              AS primary_name,
+      EXTRACT(YEAR FROM bp.birthdate)::int AS birth_year,
+      pa.professions,
+      ns.nepo_score,
+      ks.parent_count,
+      ks.grandparent_count,
+      ks.relative_count,
+      bp.image_url,
+      cs.total_titles,
+      cs.acting_titles,
+      cs.directing_titles,
+      cs.career_start_year,
+      cs.latest_title_year,
+      cs.avg_rating,
+      cs.total_votes,
+      JSON_AGG(
+              JSON_BUILD_OBJECT(
+                      'tconst',         tt.tconst,
+                      'primary_title',  tt.primary_title,
+                      'title_type',     tt.title_type,
+                      'start_year',     tt.start_year,
+                      'category',       tt.category,
+                      'average_rating', tt.average_rating,
+                      'num_votes',      tt.num_votes
+              ) ORDER BY tt.average_rating DESC NULLS LAST,
+                  tt.num_votes      DESC NULLS LAST,
+                  tt.start_year     DESC NULLS LAST
+      ) AS top_titles
+
+
+    FROM base_person bp
+            CROSS JOIN kinship_summary ks
+            CROSS JOIN career_summary  cs
+            CROSS JOIN top_titles      tt
+            LEFT JOIN profession_agg   pa ON pa.nconst    = bp.nconst
+            LEFT JOIN core.neposcore   ns ON ns.person_id = bp.person_id
+
+
+    GROUP BY
+      bp.person_id, bp.name, bp.birthdate, bp.image_url,
+      pa.professions,
+      ns.nepo_score,
+      ks.parent_count, ks.grandparent_count, ks.relative_count,
+      cs.total_titles, cs.acting_titles, cs.directing_titles,
+      cs.career_start_year, cs.latest_title_year, cs.avg_rating, cs.total_votes
   `, (err, data) => {
     if (err) {
       console.log(err);
@@ -350,7 +466,7 @@ const getPersonProfile = async function(req, res) {
   });
 }
 
-// Route 8: GET /person/:person_id/family
+// TBD.   Route 8: GET /person/:person_id/family 
 const getPersonFamliy = async function(req, res) {
   connection.query(`
     SELECT *
@@ -366,7 +482,7 @@ const getPersonFamliy = async function(req, res) {
   });
 }
 
-// Route 9: GET /person/:person_id/collaborators
+// TBD.    Route 9: GET /person/:person_id/collaborators
 const getPersonCollaborators = async function(req, res) {
   connection.query(`
     SELECT *
@@ -386,7 +502,7 @@ const getPersonCollaborators = async function(req, res) {
  * Comparison page *
  *******************/
 
-// Route 10: GET /compare
+// QUERY NEEDS CHANGES Route 10: GET /compare
 const compareAvsB = async function(req, res) {
   const nameA = req.query.person_name_a ?? '';
   const nameB = req.query.person_name_b ?? '';
@@ -670,7 +786,7 @@ const getTopNepoCollaborations = async function(req, res) {
   });
 }
 
-// Route 12: GET /analysis/nepo_industry_metrics
+// Route 13: GET /analysis/nepo_industry_metrics
 const getNepoIndustryMetrics = async function(req, res) {
   connection.query(`
     WITH nepo_flag AS (
@@ -879,22 +995,6 @@ const getRelativeCollaborationMovies = async function(req, res) {
 }
 
 
-// Route ?: GET /tmp
-const tmp = async function(req, res) {
-  connection.query(`
-    SELECT *
-    FROM core.person
-    LIMIT 10
-  `, (err, data) => {
-    if (err) {
-      console.log(err);
-      res.json({});
-    } else {
-      res.json(data.rows);
-    }
-  });
-}
-
 module.exports = {
   getTopNepoBabies,
   getTrendingThisYear,
@@ -906,9 +1006,8 @@ module.exports = {
   getPersonFamliy,
   getPersonCollaborators,
   compareAvsB,
-  compareChildParent,
   getNepoParticipationIndustry,
+  getTopNepoCollaborations,
   getNepoIndustryMetrics,
   getRelativeCollaborationMovies,
-  tmp
 }

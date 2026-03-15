@@ -12,7 +12,6 @@ app.get('/', (req, res) => {
   res.send('Hello from the Node.js backend!');
 });
 
-app.get('/tmp', routes.tmp);
 app.get('/homepage/top_nepo_babies', routes.getTopNepoBabies);
 app.get('/homepage/trending_this_year', routes.getTrendingThisYear);
 app.get('/homepage/family_dynasties', routes.getFamilyDynasties);
@@ -20,6 +19,9 @@ app.get('/homepage/surprise_me', routes.getSurprisePerson);
 app.get('/search', routes.search);
 app.get('/search/advanced', routes.advancedSearch);
 app.get('/compare', routes.compareAvsB);
+app.get('/person/:person_id', routes.getPersonProfile);
+app.get('/person/:person_id/family', routes.getPersonFamliy);
+app.get('/person/:person_id/collaborators', routes.getPersonCollaborators);
 app.get('/analysis/nepo_participation_industry', routes.getNepoParticipationIndustry);
 app.get('/analysis/nepo_industry_metrics', routes.getNepoIndustryMetrics);
 app.get('/analysis/top_nepo_collaborations', routes.getTopNepoCollaborations);
