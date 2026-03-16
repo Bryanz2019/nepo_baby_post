@@ -1596,9 +1596,9 @@ SELECT
        COALESCE(pp.person_point,0) *
         (CASE
                 WHEN k.kinship = 'PARENT' THEN 1
-                WHEN k.kinship = 'GRANDPARENT' THEN 0.5
-                WHEN k.kinship = 'ANCESTOR' THEN 0.25
-                WHEN k.kinship = 'AUNT_UNCLE' THEN 0.8
+                WHEN k.kinship = 'GRANDPARENT' THEN 0.75
+                WHEN k.kinship = 'ANCESTOR' THEN 0.5
+                WHEN k.kinship = 'AUNT_UNCLE' THEN 0.5
                 WHEN k.kinship = 'GREAT_AUNT_UNCLE' THEN 0.4
                 WHEN k.kinship = 'COUSIN_1ST_1R_UP' THEN 0.3
                 WHEN k.kinship = 'COUSIN_1ST_2R_UP' THEN 0.2
