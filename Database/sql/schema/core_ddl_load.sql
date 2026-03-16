@@ -659,6 +659,958 @@ WHERE r.tconst IS NOT NULL
       WHERE t.tconst = TRIM(r.tconst)
   );
 
+-------------------- {core.mapkinship } ---------------------
+-- OWNER: Emma
+-- SOURCE: core.principal
+-- DEPENDS ON: 
+
+
+-- ============================================================
+-- core.mapkinship v2
+-- Aligned with vector-based kinship labels from core_kinship_v2
+--
+-- Role of this table:
+--   1. Seeds for relationships that CAN be structurally inferred
+--      (grandfather, uncle etc.) — used as fallback if parent
+--      edges are missing from Wikidata
+--   2. Primary source for relationships that CANNOT be inferred
+--      from parent edges alone (in-laws, godparents, relatives)
+-- ============================================================
+
+
+DROP TABLE IF EXISTS core.mapkinship CASCADE;
+
+
+CREATE TABLE IF NOT EXISTS core.mapkinship (
+   relationship VARCHAR(100) PRIMARY KEY,
+   kinship      VARCHAR(30)  NOT NULL   -- matches v2 labels
+);
+
+
+INSERT INTO core.mapkinship (relationship, kinship) VALUES
+
+
+-- ── PARENT (gen=+1, deg=0) ────────────────────────────────────────────────
+('father',                                        'PARENT'),
+('mother',                                        'PARENT'),
+('biological father',                             'PARENT'),
+('adoptive father',                               'PARENT'),
+('adoptive mother',                               'PARENT'),
+('adoptive parent',                               'PARENT'),
+
+
+-- ── GRANDPARENT (gen=+2, deg=0) ───────────────────────────────────────────
+('grandfather',                                   'GRANDPARENT'),
+('grandmother',                                   'GRANDPARENT'),
+('paternal grandfather',                          'GRANDPARENT'),
+('paternal grandmother',                          'GRANDPARENT'),
+('maternal grandfather',                          'GRANDPARENT'),
+('maternal grandmother',                          'GRANDPARENT'),
+('grandparent',                                   'GRANDPARENT'),
+
+
+-- ── ANCESTOR (gen=+3, deg=0) ──────────────────────────────────────────────
+('great-grandfather',                             'ANCESTOR'),
+('great-grandmother',                             'ANCESTOR'),
+('great-great-grandfather',                       'ANCESTOR'),
+('great-great-grandmother',                       'ANCESTOR'),
+('great-great-grandparent',                       'ANCESTOR'),
+('great-great-great-grandfather',                 'ANCESTOR'),
+('great-great-great-grandmother',                 'ANCESTOR'),
+('maternal great-grandfather',                    'ANCESTOR'),
+('maternal great-grandparent',                    'ANCESTOR'),
+('paternal great-grandparent',                    'ANCESTOR'),
+('paternal grandfather''s father',                'ANCESTOR'),
+('father''s father''s father''s father',          'ANCESTOR'),
+('father''s father''s father''s mother',          'ANCESTOR'),
+('father''s mother''s father',                    'ANCESTOR'),
+('mother''s mother''s mother',                    'ANCESTOR'),
+('mother''s mother''s father',                    'ANCESTOR'),
+('maternal grandfather''s brother',               'ANCESTOR'),
+('4th great-grandfather',                         'ANCESTOR'),
+('6th great-grandfather',                         'ANCESTOR'),
+('15th great-grandparent',                        'ANCESTOR'),
+('ancestor',                                      'ANCESTOR'),
+('progenitor',                                    'ANCESTOR'),
+
+
+-- ── SIBLING (gen=0, deg=1) ────────────────────────────────────────────────
+('brother',                                       'SIBLING'),
+('sister',                                        'SIBLING'),
+('half-brother',                                  'SIBLING'),
+('half-sister',                                   'SIBLING'),
+('twin brother',                                  'SIBLING'),
+('elder brother',                                 'SIBLING'),
+('younger brother',                               'SIBLING'),
+('younger sister',                                'SIBLING'),
+('blood brother',                                 'SIBLING'),
+('adoptive brother',                              'SIBLING'),
+('adoptive sister',                               'SIBLING'),
+('paternal half-brother',                         'SIBLING'),
+('paternal half-sister',                          'SIBLING'),
+('maternal half-brother',                         'SIBLING'),
+('maternal half-sister',                          'SIBLING'),
+('sibling',                                       'SIBLING'),
+
+
+-- ── CHILD (gen=-1, deg=0) ─────────────────────────────────────────────────
+('son',                                           'CHILD'),
+('daughter',                                      'CHILD'),
+('adopted son',                                   'CHILD'),
+('adopted daughter',                              'CHILD'),
+('adopted child',                                 'CHILD'),
+('godson',                                        'CHILD'),
+('goddaughter',                                   'CHILD'),
+('godchild',                                      'CHILD'),
+('son of stepfather',                             'CHILD'),
+
+
+-- ── GRANDCHILD (gen=-2, deg=0) ────────────────────────────────────────────
+('grandson',                                      'GRANDCHILD'),
+('granddaughter',                                 'GRANDCHILD'),
+('grandchild',                                    'GRANDCHILD'),
+('stepgrandson',                                  'GRANDCHILD'),
+('stepgranddaughter',                             'GRANDCHILD'),
+
+
+-- ── DESCENDANT (gen<=-3, deg=0) ───────────────────────────────────────────
+('great-grandson',                                'DESCENDANT'),
+('great-granddaughter',                           'DESCENDANT'),
+('great-great-granddaughter',                     'DESCENDANT'),
+('son''s son',                                    'DESCENDANT'),
+('son''s daughter',                               'DESCENDANT'),
+('daughter''s son',                               'DESCENDANT'),
+('daughter''s daughter',                          'DESCENDANT'),
+
+
+-- ── AUNT_UNCLE (gen=+1, deg=1) ────────────────────────────────────────────
+('uncle',                                         'AUNT_UNCLE'),
+('aunt',                                          'AUNT_UNCLE'),
+('father''s brother',                             'AUNT_UNCLE'),
+('father''s sister',                              'AUNT_UNCLE'),
+('father''s younger brother',                     'AUNT_UNCLE'),
+('mother''s brother',                             'AUNT_UNCLE'),
+('mother''s sister',                              'AUNT_UNCLE'),
+('parent''s brother',                             'AUNT_UNCLE'),
+('parent''s sister',                              'AUNT_UNCLE'),
+('paternal half-uncle',                           'AUNT_UNCLE'),
+('second uncle',                                  'AUNT_UNCLE'),
+('second aunt',                                   'AUNT_UNCLE'),
+
+
+-- ── GREAT_AUNT_UNCLE (gen=+2, deg=1) — NEW in v2 ─────────────────────────
+('granduncle',                                    'GREAT_AUNT_UNCLE'),
+('grandaunt',                                     'GREAT_AUNT_UNCLE'),
+('grandaunt or granduncle',                       'GREAT_AUNT_UNCLE'),
+('great-uncle',                                   'GREAT_AUNT_UNCLE'),
+('great-aunt',                                    'GREAT_AUNT_UNCLE'),
+('great-granduncle',                              'GREAT_AUNT_UNCLE'),
+('great-great-granduncle',                        'GREAT_AUNT_UNCLE'),
+('paternal great-grandmother',                    'GREAT_AUNT_UNCLE'),  -- legacy mismap
+
+
+-- ── NIECE_NEPHEW (gen=-1, deg=1) ─────────────────────────────────────────
+('nephew',                                        'NIECE_NEPHEW'),
+('niece',                                         'NIECE_NEPHEW'),
+('fraternal nephew',                              'NIECE_NEPHEW'),
+('fraternal niece',                               'NIECE_NEPHEW'),
+('sororal nephew',                                'NIECE_NEPHEW'),
+('sororal niece',                                 'NIECE_NEPHEW'),
+('paternal nephew',                               'NIECE_NEPHEW'),
+('maternal nephew',                               'NIECE_NEPHEW'),
+('maternal niece',                                'NIECE_NEPHEW'),
+('niece-in-law',                                  'NIECE_NEPHEW'),
+
+
+-- ── GREAT_NIECE_NEPHEW (gen=-2, deg=1) — NEW in v2 ───────────────────────
+('great-nephew',                                  'GREAT_NIECE_NEPHEW'),
+('great-niece',                                   'GREAT_NIECE_NEPHEW'),
+('great-grandniece',                              'GREAT_NIECE_NEPHEW'),
+('second nephew',                                 'GREAT_NIECE_NEPHEW'),
+('second niece',                                  'GREAT_NIECE_NEPHEW'),
+
+
+-- ── COUSIN_1ST (gen=0, deg=2) — NEW granular labels in v2 ────────────────
+('cousin',                                        'COUSIN_1ST'),
+('first cousin',                                  'COUSIN_1ST'),
+('male cousin',                                   'COUSIN_1ST'),
+('female cousin',                                 'COUSIN_1ST'),
+('male first cousin',                             'COUSIN_1ST'),
+('female first cousin',                           'COUSIN_1ST'),
+('maternal cousin',                               'COUSIN_1ST'),
+('paternal cousin',                               'COUSIN_1ST'),
+('maternal first cousin',                         'COUSIN_1ST'),
+('male paternal parallel cousin',                 'COUSIN_1ST'),
+('female paternal parallel cousin',               'COUSIN_1ST'),
+('female parallel cousin',                        'COUSIN_1ST'),
+('biaojie',                                       'COUSIN_1ST'),
+('"child of a sibling aunt or uncle"',            'COUSIN_1ST'),
+
+
+-- ── COUSIN_1ST_1R (gen=±1, deg=2) ────────────────────────────────────────
+('first cousin once removed descending',          'COUSIN_1ST_1R_DOWN'),
+('second cousin once removed ascending',          'COUSIN_2ND_1R_UP'),
+('second cousin once removed descending',         'COUSIN_2ND_1R_DOWN'),
+
+
+-- ── COUSIN_2ND (gen=0, deg=3) ─────────────────────────────────────────────
+('second cousin',                                 'COUSIN_2ND'),
+('male second cousin',                            'COUSIN_2ND'),
+('female second cousin',                          'COUSIN_2ND'),
+
+
+-- ── COUSIN (catch-all for unmapped cousin variants) ───────────────────────
+('third cousin',                                  'RELATIVE'),
+('fourth cousin',                                 'RELATIVE'),
+('sixth cousin 4 times removed descending',       'RELATIVE'),
+('cousin-in-law',                                 'RELATIVE'),
+
+
+-- ── IN-LAWS (not structurally inferable — primary source) ─────────────────
+('father-in-law',                                 'PARENT_INLAW'),
+('mother-in-law',                                 'PARENT_INLAW'),
+('stepfather-in-law',                             'PARENT_INLAW'),
+('stepmother-in-law',                             'PARENT_INLAW'),
+('grandfather-in-law',                            'PARENT_INLAW'),
+('wife''s father',                                'PARENT_INLAW'),
+('wife''s mother',                                'PARENT_INLAW'),
+('husband''s father',                             'PARENT_INLAW'),
+('husband''s mother',                             'PARENT_INLAW'),
+('son-in-law',                                    'CHILD_INLAW'),
+('daughter-in-law',                               'CHILD_INLAW'),
+('child-in-law',                                  'CHILD_INLAW'),
+('brother-in-law',                                'SIBLING_INLAW'),
+('sister-in-law',                                 'SIBLING_INLAW'),
+('sibling-in-law',                                'SIBLING_INLAW'),
+('brother''s wife',                               'SIBLING_INLAW'),
+('sister''s husband',                             'SIBLING_INLAW'),
+('husband''s brother',                            'SIBLING_INLAW'),
+('husband''s sister',                             'SIBLING_INLAW'),
+('wife''s sister',                                'SIBLING_INLAW'),
+('husband of sister of husband',                  'SIBLING_INLAW'),
+('co-brother-in-law',                             'SIBLING_INLAW'),
+('wife of mother''s brother',                     'RELATIVE_INLAW'),
+('husband of father''s sister',                   'RELATIVE_INLAW'),
+('spouse''s uncle',                               'RELATIVE_INLAW'),
+('spouse''s aunt',                                'RELATIVE_INLAW'),
+('fiancé',                                        'RELATIVE_INLAW'),
+
+
+-- ── RELATIVE (catch-all) ──────────────────────────────────────────────────
+('godfather',                                     'RELATIVE'),
+('godmother',                                     'RELATIVE'),
+('nurture kinship',                               'RELATIVE'),
+('distant relative',                              'RELATIVE'),
+('relative',                                      'RELATIVE'),
+
+
+-- ── SPOUSE (used to infer step-relationships) ───────────────────────────
+('spouse',                                        'SPOUSE'),
+('wife',                                          'SPOUSE'),
+('husband',                                       'SPOUSE'),
+('partner',                                       'SPOUSE'),
+('ex-wife',                                       'SPOUSE'),
+('ex-husband',                                    'SPOUSE'),
+('ex-spouse',                                     'SPOUSE'),
+('domestic partner',                              'SPOUSE'),
+('civil partner',                                 'SPOUSE'),
+
+
+-- ── STEPPARENT / STEPCHILD (explicit Wikidata labels) ────────────────────
+('stepfather',                                    'STEPPARENT'),
+('stepmother',                                    'STEPPARENT'),
+('stepson',                                       'STEPCHILD'),
+('stepdaughter',                                  'STEPCHILD'),
+('stepchild',                                     'STEPCHILD'),
+('stepbrother',                                   'STEPSIBLING'),
+('stepsister',                                    'STEPSIBLING'),
+
+
+-- ── UNKNOWN (noise / data quality issues) ────────────────────────────────
+('witness',                                       'UNKNOWN'),
+('first course',                                  'UNKNOWN'),
+('q111323925',                                    'UNKNOWN'),
+('q10082309',                                     'UNKNOWN');
+
+
+
+
+
+-------------------- {core.kinship } ---------------------
+-- OWNER: Emma
+-- SOURCE: core.relationship
+-- DEPENDS ON: core.mapkinship
+-- ============================================================
+-- core.kinship v2 — Vector-based kinship inference
+-- Fixed: split recursive CTE into separate up/lateral/down passes
+-- ============================================================
+
+
+
+
+-- ============================================================
+-- STEP 1: parent edges
+-- ============================================================
+DROP TABLE IF EXISTS tmp_parent_edges;
+CREATE TEMP TABLE tmp_parent_edges AS
+SELECT
+   r.person_id,
+   r.related_person_id AS parent_id
+FROM core.relationship r
+JOIN core.mapkinship mk ON r.relationship = mk.relationship
+WHERE mk.kinship = 'PARENT';
+
+
+CREATE INDEX idx_v2_pe_person ON tmp_parent_edges (person_id);
+CREATE INDEX idx_v2_pe_parent ON tmp_parent_edges (parent_id);
+
+
+
+
+-- ============================================================
+-- STEP 2: ancestor chain (go UP only, max depth 5)
+-- Produces rows: (person_id, ancestor_id, up_steps)
+-- ============================================================
+DROP TABLE IF EXISTS tmp_up_chain;
+CREATE TEMP TABLE tmp_up_chain AS
+WITH RECURSIVE up_cte AS (
+   SELECT person_id, parent_id AS ancestor_id, 1 AS up_steps
+   FROM tmp_parent_edges
+
+
+   UNION ALL
+
+
+   SELECT u.person_id, pe.parent_id AS ancestor_id, u.up_steps + 1
+   FROM up_cte u
+   JOIN tmp_parent_edges pe ON pe.person_id = u.ancestor_id
+   WHERE u.up_steps < 5
+)
+SELECT DISTINCT person_id, ancestor_id, up_steps FROM up_cte;
+
+
+CREATE INDEX idx_v2_uc_person   ON tmp_up_chain (person_id);
+CREATE INDEX idx_v2_uc_ancestor ON tmp_up_chain (ancestor_id);
+CREATE INDEX idx_v2_uc_steps    ON tmp_up_chain (up_steps);
+
+
+
+
+-- ============================================================
+-- STEP 3: lateral edges
+-- Two people are lateral (sibling) if they:
+--   (a) share at least one direct parent in tmp_parent_edges, OR
+--   (b) have an explicit sibling relationship in core.relationship
+--       (covers cases where shared parents aren't in the DB)
+-- ============================================================
+DROP TABLE IF EXISTS tmp_lateral_edges;
+CREATE TEMP TABLE tmp_lateral_edges AS
+
+
+-- (a) structurally inferred: share a parent
+SELECT DISTINCT
+   p1.person_id    AS person_id,
+   p2.person_id    AS lateral_id
+FROM tmp_parent_edges p1
+JOIN tmp_parent_edges p2
+   ON p1.parent_id  = p2.parent_id
+   AND p1.person_id <> p2.person_id
+
+
+UNION
+
+
+-- (b) explicit sibling from core.relationship
+SELECT DISTINCT
+   r.person_id,
+   r.related_person_id AS lateral_id
+FROM core.relationship r
+JOIN core.mapkinship mk ON r.relationship = mk.relationship
+WHERE mk.kinship = 'SIBLING';
+
+
+CREATE INDEX idx_v2_le_person  ON tmp_lateral_edges (person_id);
+CREATE INDEX idx_v2_le_lateral ON tmp_lateral_edges (lateral_id);
+
+
+
+
+-- ============================================================
+-- STEP 3b: spouse edges
+-- Seeded from explicit spouse/partner relationships in core.relationship.
+-- Used to infer step-relationships.
+-- ============================================================
+DROP TABLE IF EXISTS tmp_spouse_edges;
+CREATE TEMP TABLE tmp_spouse_edges AS
+SELECT DISTINCT
+   r.person_id,
+   r.related_person_id AS spouse_id
+FROM core.relationship r
+JOIN core.mapkinship mk ON r.relationship = mk.relationship
+WHERE mk.kinship = 'SPOUSE';
+
+
+-- make it bidirectional
+INSERT INTO tmp_spouse_edges (person_id, spouse_id)
+SELECT spouse_id, person_id FROM tmp_spouse_edges
+ON CONFLICT DO NOTHING;
+
+
+CREATE INDEX idx_v2_sp_person ON tmp_spouse_edges (person_id);
+CREATE INDEX idx_v2_sp_spouse ON tmp_spouse_edges (spouse_id);
+
+
+
+
+-- ============================================================
+-- STEP 4: build kinship vectors
+--
+-- Canonical path: go UP to LCA → go LATERAL → go DOWN
+-- Each combination of (up_steps, lat_steps, down_steps) maps
+-- to a unique relationship via:
+--   gen_delta = up_steps - down_steps
+--   degree    = lat_steps
+--   lca_gen   = up_steps
+--
+-- We enumerate all valid combinations:
+--   A. Pure vertical:     lat=0, down = 0..up
+--   B. Up + lateral:      up=1..5, lat=1..3, down = 0..up+lat
+-- ============================================================
+DROP TABLE IF EXISTS tmp_kinship_vectors;
+CREATE TEMP TABLE tmp_kinship_vectors AS
+
+
+-- ── A1. Direct ancestors (up only, no lateral, no down) ──────────────────
+SELECT
+   uc.person_id,
+   uc.ancestor_id          AS related_person_id,
+   uc.up_steps - 0         AS gen_delta,
+   0                       AS degree,
+   uc.up_steps             AS lca_gen
+FROM tmp_up_chain uc
+
+
+UNION ALL
+
+
+-- ── A2. Direct descendants (reverse of ancestors) ────────────────────────
+SELECT
+   uc.ancestor_id          AS person_id,
+   uc.person_id            AS related_person_id,
+   0 - uc.up_steps         AS gen_delta,
+   0                       AS degree,
+   0                       AS lca_gen
+FROM tmp_up_chain uc
+
+
+UNION ALL
+
+
+-- ── B1. Same-gen lateral: siblings (up=1, lat=1, down=1) ─────────────────
+-- person → up 1 → lateral → down 1 → related
+SELECT
+   le.person_id,
+   le.lateral_id           AS related_person_id,
+   0                       AS gen_delta,    -- up=1, down=1
+   1                       AS degree,
+   1                       AS lca_gen
+FROM tmp_lateral_edges le
+
+
+UNION ALL
+
+
+-- ── B2a. Up + lateral + down via up_chain ───────────────────────────────
+-- person goes up u steps, lateral 1 step, then down d steps
+-- Both endpoints reachable via tmp_up_chain (cousins, etc.)
+SELECT DISTINCT
+   uc1.person_id                  AS person_id,
+   uc2.person_id                  AS related_person_id,
+   (uc1.up_steps - uc2.up_steps)  AS gen_delta,
+   1                              AS degree,
+   uc1.up_steps                   AS lca_gen
+FROM tmp_up_chain uc1
+JOIN tmp_lateral_edges le ON le.person_id   = uc1.ancestor_id
+JOIN tmp_up_chain uc2     ON uc2.ancestor_id = le.lateral_id
+WHERE uc1.person_id <> uc2.person_id
+ AND uc1.up_steps <= 4
+ AND uc2.up_steps <= 4
+
+
+UNION ALL
+
+
+-- ── B2b. Up + lateral (no down): aunt/uncle with no parent data ───────────
+-- person goes up u steps to an ancestor, then lateral to a sibling
+-- of that ancestor — the sibling IS the related person (down=0).
+-- gen_delta = up_steps (went up u, came down 0), degree = 1
+SELECT DISTINCT
+   uc.person_id                   AS person_id,
+   le.lateral_id                  AS related_person_id,
+   uc.up_steps                    AS gen_delta,   -- up=u, down=0
+   1                              AS degree,
+   uc.up_steps                    AS lca_gen
+FROM tmp_up_chain uc
+JOIN tmp_lateral_edges le ON le.person_id = uc.ancestor_id
+WHERE uc.person_id <> le.lateral_id
+ AND uc.up_steps <= 4
+
+
+UNION ALL
+
+
+-- ── B2b reverse. Lateral's child → person (NIECE_NEPHEW with no parent data)
+-- Bentley→Grace: lateral_id's descendant sees person as niece/nephew target
+-- gen_delta = -up_steps (went up 0, effectively down u), degree = 1
+SELECT DISTINCT
+   le.lateral_id                  AS person_id,
+   uc.person_id                   AS related_person_id,
+   0 - uc.up_steps                AS gen_delta,   -- down=u, up=0
+   1                              AS degree,
+   uc.up_steps                    AS lca_gen
+FROM tmp_up_chain uc
+JOIN tmp_lateral_edges le ON le.person_id = uc.ancestor_id
+WHERE uc.person_id <> le.lateral_id
+ AND uc.up_steps <= 4
+
+
+UNION ALL
+
+
+-- ── B3a. Two lateral hops + down via up_chain (2nd cousins) ─────────────
+SELECT DISTINCT
+   uc1.person_id                  AS person_id,
+   uc2.person_id                  AS related_person_id,
+   (uc1.up_steps - uc2.up_steps)  AS gen_delta,
+   2                              AS degree,
+   uc1.up_steps                   AS lca_gen
+FROM tmp_up_chain uc1
+JOIN tmp_lateral_edges le1 ON le1.person_id   = uc1.ancestor_id
+JOIN tmp_lateral_edges le2 ON le2.person_id   = le1.lateral_id
+                          AND le2.lateral_id <> uc1.ancestor_id
+JOIN tmp_up_chain uc2      ON uc2.ancestor_id = le2.lateral_id
+WHERE uc1.person_id <> uc2.person_id
+ AND uc1.up_steps <= 3
+ AND uc2.up_steps <= 3
+
+
+UNION ALL
+
+
+-- ── B3b. Two lateral hops, no down (cousin with no parent data) ───────────
+SELECT DISTINCT
+   uc.person_id                   AS person_id,
+   le2.lateral_id                 AS related_person_id,
+   uc.up_steps                    AS gen_delta,
+   2                              AS degree,
+   uc.up_steps                    AS lca_gen
+FROM tmp_up_chain uc
+JOIN tmp_lateral_edges le1 ON le1.person_id   = uc.ancestor_id
+JOIN tmp_lateral_edges le2 ON le2.person_id   = le1.lateral_id
+                          AND le2.lateral_id <> uc.ancestor_id
+WHERE uc.person_id <> le2.lateral_id
+ AND uc.up_steps <= 3
+
+
+UNION ALL
+
+
+-- ── B3b reverse. Cousin's child → person (cousin once removed, no parent data)
+SELECT DISTINCT
+   le2.lateral_id                 AS person_id,
+   uc.person_id                   AS related_person_id,
+   0 - uc.up_steps                AS gen_delta,
+   2                              AS degree,
+   uc.up_steps                    AS lca_gen
+FROM tmp_up_chain uc
+JOIN tmp_lateral_edges le1 ON le1.person_id   = uc.ancestor_id
+JOIN tmp_lateral_edges le2 ON le2.person_id   = le1.lateral_id
+                          AND le2.lateral_id <> uc.ancestor_id
+WHERE uc.person_id <> le2.lateral_id
+ AND uc.up_steps <= 3
+
+
+UNION ALL
+
+
+-- ── S1. Stepparent: person's parent married someone → stepparent ──────────
+-- Path: person →(up)→ parent →(spouse)→ stepparent
+-- gen_delta = +1, degree = 0, marked via degree=0 but needs label override
+-- We use degree=10 as a flag for "step" relationships (not a real geo degree)
+SELECT DISTINCT
+   uc.person_id                   AS person_id,
+   sp.spouse_id                   AS related_person_id,
+   uc.up_steps                    AS gen_delta,
+   10 + uc.up_steps               AS degree,   -- 10=step flag, +up_steps for gen
+   uc.up_steps                    AS lca_gen
+FROM tmp_up_chain uc
+JOIN tmp_spouse_edges sp ON sp.person_id = uc.ancestor_id
+WHERE uc.person_id <> sp.spouse_id
+ AND uc.up_steps <= 2            -- stepparent (1) and step-grandparent (2)
+
+
+UNION ALL
+
+
+-- ── S1 reverse. Stepchild: stepparent sees person as stepchild ────────────
+SELECT DISTINCT
+   sp.spouse_id                   AS person_id,
+   uc.person_id                   AS related_person_id,
+   0 - uc.up_steps                AS gen_delta,
+   10 + uc.up_steps               AS degree,
+   uc.up_steps                    AS lca_gen
+FROM tmp_up_chain uc
+JOIN tmp_spouse_edges sp ON sp.person_id = uc.ancestor_id
+WHERE uc.person_id <> sp.spouse_id
+ AND uc.up_steps <= 2
+
+
+UNION ALL
+
+
+-- ── S2. Stepsibling: person's parent's spouse's child ────────────────────
+-- Path: person →(up 1)→ parent →(spouse)→ stepparent →(down 1)→ stepsibling
+SELECT DISTINCT
+   uc1.person_id                  AS person_id,
+   uc2.person_id                  AS related_person_id,
+   0                              AS gen_delta,   -- same generation
+   11                             AS degree,      -- 11 = stepsibling flag
+   1                              AS lca_gen
+FROM tmp_up_chain uc1
+JOIN tmp_spouse_edges sp  ON sp.person_id   = uc1.ancestor_id
+JOIN tmp_up_chain uc2     ON uc2.ancestor_id = sp.spouse_id
+WHERE uc1.up_steps = 1
+ AND uc2.up_steps = 1
+ AND uc1.person_id <> uc2.person_id;
+
+
+CREATE INDEX idx_v2_kv_person  ON tmp_kinship_vectors (person_id);
+CREATE INDEX idx_v2_kv_related ON tmp_kinship_vectors (related_person_id);
+CREATE INDEX idx_v2_kv_gendeg  ON tmp_kinship_vectors (gen_delta, degree);
+
+
+
+
+-- ============================================================
+-- STEP 5: label assignment
+-- Pick the closest path per pair, then map (gen_delta, degree)
+-- to a kinship label.
+-- ============================================================
+DROP TABLE IF EXISTS tmp_labeled_kinships;
+CREATE TEMP TABLE tmp_labeled_kinships AS
+SELECT
+   person_id,
+   related_person_id,
+   gen_delta,
+   degree,
+   lca_gen,
+   CASE
+       -- degree 0: direct lineage
+       WHEN degree = 0 AND gen_delta =  1 THEN 'PARENT'
+       WHEN degree = 0 AND gen_delta = -1 THEN 'CHILD'
+       WHEN degree = 0 AND gen_delta =  2 THEN 'GRANDPARENT'
+       WHEN degree = 0 AND gen_delta = -2 THEN 'GRANDCHILD'
+       WHEN degree = 0 AND gen_delta >=  3 THEN 'ANCESTOR'
+       WHEN degree = 0 AND gen_delta <= -3 THEN 'DESCENDANT'
+
+
+       -- degree 1: sibling line
+       WHEN degree = 1 AND gen_delta =  0 THEN 'SIBLING'
+       WHEN degree = 1 AND gen_delta =  1 THEN 'AUNT_UNCLE'
+       WHEN degree = 1 AND gen_delta = -1 THEN 'NIECE_NEPHEW'
+       WHEN degree = 1 AND gen_delta =  2 THEN 'GREAT_AUNT_UNCLE'
+       WHEN degree = 1 AND gen_delta = -2 THEN 'GREAT_NIECE_NEPHEW'
+       WHEN degree = 1 AND gen_delta >=  3 THEN 'ANCESTOR'
+       WHEN degree = 1 AND gen_delta <= -3 THEN 'DESCENDANT'
+
+
+       -- degree 2: 1st cousins
+       WHEN degree = 2 AND gen_delta =  0 THEN 'COUSIN_1ST'
+       WHEN degree = 2 AND gen_delta =  1 THEN 'COUSIN_1ST_1R_UP'
+       WHEN degree = 2 AND gen_delta = -1 THEN 'COUSIN_1ST_1R_DOWN'
+       WHEN degree = 2 AND gen_delta =  2 THEN 'COUSIN_1ST_2R_UP'
+       WHEN degree = 2 AND gen_delta = -2 THEN 'COUSIN_1ST_2R_DOWN'
+       WHEN degree = 2 AND ABS(gen_delta) >= 3 THEN 'RELATIVE'
+
+
+       -- degree 3: 2nd cousins (from B3 lateral x2)
+       WHEN degree = 3 AND gen_delta =  0 THEN 'COUSIN_2ND'
+       WHEN degree = 3 AND gen_delta =  1 THEN 'COUSIN_2ND_1R_UP'
+       WHEN degree = 3 AND gen_delta = -1 THEN 'COUSIN_2ND_1R_DOWN'
+       WHEN degree = 3 AND ABS(gen_delta) >= 2 THEN 'RELATIVE'
+
+
+       -- step-relationships (degree 10+ flag)
+       WHEN degree = 11                THEN 'STEPSIBLING'
+       WHEN degree = 10 AND gen_delta =  1 THEN 'STEPPARENT'
+       WHEN degree = 10 AND gen_delta = -1 THEN 'STEPCHILD'
+       WHEN degree = 10 AND gen_delta =  2 THEN 'STEP_GRANDPARENT'
+       WHEN degree = 10 AND gen_delta = -2 THEN 'STEP_GRANDCHILD'
+
+
+       ELSE 'RELATIVE'
+   END AS kinship
+FROM (
+   SELECT DISTINCT ON (person_id, related_person_id)
+       person_id,
+       related_person_id,
+       gen_delta,
+       degree,
+       lca_gen
+   FROM tmp_kinship_vectors
+   ORDER BY
+       person_id,
+       related_person_id,
+       degree    ASC,
+       ABS(gen_delta) ASC,
+       lca_gen   ASC
+) closest;
+
+
+CREATE INDEX idx_v2_lk_person  ON tmp_labeled_kinships (person_id);
+CREATE INDEX idx_v2_lk_related ON tmp_labeled_kinships (related_person_id);
+
+
+-- ============================================================
+-- STEP 6: explicit non-inferable relationships (in-laws etc.)
+-- ============================================================
+DROP TABLE IF EXISTS tmp_explicit_kinships;
+CREATE TEMP TABLE tmp_explicit_kinships AS
+SELECT
+   r.person_id,
+   r.related_person_id,
+   mk.kinship,
+   0 AS gen_delta,
+   0 AS degree,
+   0 AS lca_gen
+FROM core.relationship r
+JOIN core.mapkinship mk ON r.relationship = mk.relationship
+WHERE mk.kinship IN (
+   'PARENT_INLAW','CHILD_INLAW','SIBLING_INLAW','RELATIVE_INLAW','RELATIVE',
+   'STEPPARENT','STEPCHILD','STEPSIBLING'   -- explicit step-rels override inferred
+)
+AND NOT EXISTS (
+   SELECT 1 FROM tmp_labeled_kinships lk
+   WHERE lk.person_id         = r.person_id
+     AND lk.related_person_id = r.related_person_id
+     AND lk.kinship NOT IN ('RELATIVE')
+);
+
+
+-- ============================================================
+-- STEP 7: final insert into core.kinship
+-- ============================================================
+DROP TABLE IF EXISTS core.kinship CASCADE;
+
+
+CREATE TABLE core.kinship (
+   person_id         VARCHAR(50)  NOT NULL,
+   kinship           VARCHAR(30)  NOT NULL,
+   related_person_id VARCHAR(50)  NOT NULL,
+   gen_delta         SMALLINT,
+   degree            SMALLINT,
+   lca_gen           SMALLINT,
+   PRIMARY KEY (person_id, related_person_id)
+);
+
+
+INSERT INTO core.kinship
+   (person_id, kinship, related_person_id, gen_delta, degree, lca_gen)
+SELECT person_id, kinship, related_person_id, gen_delta, degree, lca_gen
+FROM (
+   SELECT
+       person_id, kinship, related_person_id, gen_delta, degree, lca_gen,
+       ROW_NUMBER() OVER (
+           PARTITION BY person_id, related_person_id
+           ORDER BY CASE kinship
+               WHEN 'PARENT'              THEN 1
+               WHEN 'CHILD'               THEN 2
+               WHEN 'SIBLING'             THEN 3
+               WHEN 'GRANDPARENT'         THEN 4
+               WHEN 'GRANDCHILD'          THEN 5
+               WHEN 'AUNT_UNCLE'          THEN 6
+               WHEN 'NIECE_NEPHEW'        THEN 7
+               WHEN 'GREAT_AUNT_UNCLE'    THEN 8
+               WHEN 'GREAT_NIECE_NEPHEW'  THEN 9
+               WHEN 'COUSIN_1ST'          THEN 10
+               WHEN 'COUSIN_1ST_1R_UP'    THEN 11
+               WHEN 'COUSIN_1ST_1R_DOWN'  THEN 11
+               WHEN 'COUSIN_1ST_2R_UP'    THEN 12
+               WHEN 'COUSIN_1ST_2R_DOWN'  THEN 12
+               WHEN 'COUSIN_2ND'          THEN 13
+               WHEN 'COUSIN_2ND_1R_UP'    THEN 14
+               WHEN 'COUSIN_2ND_1R_DOWN'  THEN 14
+               WHEN 'ANCESTOR'            THEN 15
+               WHEN 'DESCENDANT'          THEN 16
+               WHEN 'PARENT_INLAW'        THEN 17
+               WHEN 'CHILD_INLAW'         THEN 18
+               WHEN 'SIBLING_INLAW'       THEN 19
+               WHEN 'RELATIVE_INLAW'      THEN 20
+               WHEN 'RELATIVE'            THEN 21
+               WHEN 'STEPPARENT'          THEN 22
+               WHEN 'STEPCHILD'           THEN 23
+               WHEN 'STEPSIBLING'         THEN 24
+               WHEN 'STEP_GRANDPARENT'    THEN 25
+               WHEN 'STEP_GRANDCHILD'     THEN 26
+               ELSE 99
+           END
+       ) AS rn
+   FROM (
+       SELECT person_id, kinship, related_person_id, gen_delta, degree, lca_gen
+       FROM tmp_labeled_kinships
+       UNION ALL
+       SELECT person_id, kinship, related_person_id, gen_delta, degree, lca_gen
+       FROM tmp_explicit_kinships
+   ) combined
+   WHERE person_id <> related_person_id
+) ranked
+WHERE rn = 1;
+
+CREATE INDEX idx_kinship_person_id  ON core.kinship (person_id);
+CREATE INDEX idx_kinship_related_id ON core.kinship (related_person_id);
+CREATE INDEX idx_kinship_type       ON core.kinship (kinship);
+CREATE INDEX idx_kinship_gen_deg    ON core.kinship (gen_delta, degree);
+
+-- ============================================================
+-- STEP 8: cleanup
+-- ============================================================
+DROP TABLE IF EXISTS tmp_parent_edges;
+DROP TABLE IF EXISTS tmp_up_chain;
+DROP TABLE IF EXISTS tmp_lateral_edges;
+DROP TABLE IF EXISTS tmp_spouse_edges;
+DROP TABLE IF EXISTS tmp_kinship_vectors;
+DROP TABLE IF EXISTS tmp_labeled_kinships;
+DROP TABLE IF EXISTS tmp_explicit_kinships;
+
+
+-- ============================================================
+-- VERIFICATION
+-- ============================================================
+-- SELECT kinship, gen_delta, degree, COUNT(*)
+-- FROM core.kinship
+-- GROUP BY kinship, gen_delta, degree
+-- ORDER BY degree, gen_delta DESC;
+
+
+
+-------------------- {core.personpoint} ---------------------
+-- OWNER: Hangjin
+-- SOURCE: core.movieaward, core.rating, core.principal, core.personaward,core.person
+-- DEPENDS ON: 
+
+DROP TABLE IF EXISTS core.personpoint CASCADE;
+
+CREATE TABLE IF NOT EXISTS core.personpoint (
+  person_id VARCHAR(20) PRIMARY KEY,
+  person_point NUMERIC
+);
+
+
+WITH
+-- movieawardscore = (Award×10)+(Nominations×3)
+movieawardscore AS (
+SELECT
+t.tconst,
+SUM(CASE WHEN m.type = 'Award' THEN 10
+               WHEN m.type = 'Nomination' THEN 3
+               ELSE 0 END) AS movie_award_score
+FROM core.title t
+LEFT JOIN core.movieaward m ON t.tconst = m.tconst
+GROUP BY t.tconst
+),
+-- movie_point = (Log of Rating Count)×(Average Rating) + movieawardscore
+moviepoints AS (
+SELECT
+  t.tconst AS tconst,
+  (COALESCE(LOG(r.num_votes), 0) * COALESCE(r.average_rating, 0) +
+      movie_award_score) AS movie_point
+FROM core.title t
+LEFT JOIN core.rating r ON t.tconst = r.tconst
+LEFT JOIN movieawardscore mas ON t.tconst = mas.tconst
+
+
+),
+person_movie_point AS (
+
+SELECT
+   sub.person_id,
+   SUM(((sub.max_ordering + 1.0 - sub.ordering) / sub.max_ordering) * sub.movie_point) AS person_movie_point
+FROM (
+   SELECT
+       p.person_id,
+       pr.tconst,
+       pr.ordering,
+       mp.movie_point,
+       MAX(pr.ordering) OVER(PARTITION BY pr.tconst) as max_ordering,
+       ROW_NUMBER() OVER(PARTITION BY p.person_id, pr.tconst ORDER BY pr.ordering ASC) as role_rank
+   FROM core.person p
+   JOIN core.principal pr ON p.nconst = pr.nconst
+   JOIN moviepoints mp ON pr.tconst = mp.tconst
+) AS sub
+WHERE sub.role_rank = 1
+GROUP BY sub.person_id
+),
+
+
+person_award_point AS (
+SELECT
+  p2.person_id,
+ SUM(CASE WHEN pa.type = 'Award' THEN 10 ELSE 3 END)  AS person_award_point
+FROM core.person p2
+JOIN core.personaward pa ON p2.person_id = pa.person_id
+GROUP BY p2.person_id
+)
+
+
+INSERT INTO core.personpoint (person_id, person_point)
+SELECT
+  p.person_id AS person_id,
+  (COALESCE(m.person_movie_point, 0) + COALESCE(a.person_award_point, 0)) AS person_point
+FROM core.person p
+LEFT JOIN person_movie_point m ON p.person_id = m.person_id
+LEFT JOIN person_award_point a ON p.person_id = a.person_id;
+
+
+-------------------- {core.neposcore} ---------------------
+-- OWNER: Hangjin
+-- SOURCE: 
+-- DEPENDS ON: core.kinship, core.personpoint
+
+-- Calculate final nepo score =
+-- sum of all relatives' (person_movie_point + person_award_point) * kinship_score
+DROP TABLE IF EXISTS core.neposcore CASCADE;
+
+
+CREATE TABLE IF NOT EXISTS core.neposcore (
+   person_id VARCHAR(20) PRIMARY KEY,
+   nepo_score NUMERIC
+);
+
+
+INSERT INTO core.neposcore (person_id, nepo_score)
+-- Calculate final nepo score =
+-- sum of all relatives' (person_point) * kinship_score
+SELECT
+   k.person_id,
+   COALESCE(SUM(
+       COALESCE(pp.person_point,0) *
+        (CASE
+                WHEN k.kinship = 'PARENT' THEN 1
+                WHEN k.kinship = 'GRANDPARENT' THEN 0.5
+                WHEN k.kinship = 'ANCESTOR' THEN 0.25
+                WHEN k.kinship = 'AUNT_UNCLE' THEN 0.8
+                WHEN k.kinship = 'GREAT_AUNT_UNCLE' THEN 0.4
+                WHEN k.kinship = 'COUSIN_1ST_1R_UP' THEN 0.3
+                WHEN k.kinship = 'COUSIN_1ST_2R_UP' THEN 0.2
+                WHEN k.kinship = 'COUSIN_2ND_1R_UP' THEN 0.2 
+                ELSE 0 END)
+                ), 0)
+       AS nepo_score
+FROM core.kinship k
+LEFT JOIN core.personpoint pp ON k.related_person_id = pp.person_id
+GROUP BY k.person_id;
+
+
 -------------------- {core.mv_collaborator_pairs} ---------------------
 -- OWNER: Xiang
 -- SOURCE: 
