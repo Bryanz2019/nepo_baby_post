@@ -76,5 +76,20 @@
   line-height: normal;
 }
 
+@utility btn {
+  @apply rounded-none border-black border-1 text-ink label-tiny bg-panel;
+  @apply transition-all duration-200;
+}
+
+@utility btn-toggled {
+  @apply text-paper bg-red border-0;
+}
+
+@layer components {
+  .btn:hover:not(.btn-toggled) {
+    @apply bg-paper!;
+  }
+}
+
 :root {
 }

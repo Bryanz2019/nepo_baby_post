@@ -1,6 +1,11 @@
 import { BrowserRouter, Routes, Route } from "react-router";
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
+import Compare from './pages/Compare';
+import EvidenceBoard from './pages/EvidenceBoard';
+import TheScore from './pages/TheScore';
+import Collaborations from './pages/Collaborations';
+import Demo from './pages/Demo';
 
 function App() {
 
@@ -8,11 +13,16 @@ function App() {
     <BrowserRouter>
       <div style={{display: 'flex', flexDirection: 'column'}}>
         <Navbar />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path='/comparison' element={<Home />} />
-          <Route path='/analysis' element={<Home />} />
-        </Routes>
+        <div className="h-[80vh] w-screen">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path='/compare' element={<Compare />} />
+            <Route path='/evidence_board' element={<EvidenceBoard />} />
+            <Route path='/the_score' element={<TheScore />} />
+            <Route path='/collaborations' element={<Collaborations />} />
+            <Route path='/demo' element={<Demo />} />
+          </Routes>
+        </div>
       </div>
     </BrowserRouter>
   )

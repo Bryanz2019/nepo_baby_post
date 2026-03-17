@@ -1,6 +1,6 @@
 import nepo from '../assets/nepo.png'
 
-function Home() {
+function TheScore() {
 
   return (
     <>
@@ -8,5 +8,5 @@ function Home() {
     </>
   )
 }
-
-export default Home
+  
+export default TheScore
