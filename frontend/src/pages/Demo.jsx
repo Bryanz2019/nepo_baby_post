@@ -25,7 +25,7 @@ const COLUMNS = [
   },
   {
     header: 'YEAR',
-    color: 'var(--color-muted)',
+    color: 'var(--color-red)',
     renderCell: (row) => row.start_year,
   },
   {
@@ -53,10 +53,9 @@ const COLUMNS = [
 function Demo() {
   return (
     // h-full fills the content area below the navbar; flex-row splits left/right
-    <div className='flex flex-row w-full h-full overflow-hidden'>
+    <div className='flex flex-row w-full h-full'>
 
       {/* Left panel — sticky, scrolls internally if content overflows */}
-      <LeftPanel />
       <LeftPanel />
       {/* Right pane — scrolls independently, never overlaps navbar */}
       <div className='flex flex-col flex-1 min-w-0 gap-4 p-6 overflow-y-auto h-full'>
@@ -78,6 +77,7 @@ function Demo() {
         </div>
 
         {/* Table */}
+        <NepoTable data={MOCK_DATA} columns={COLUMNS} />
         <NepoTable data={MOCK_DATA} columns={COLUMNS} />
 
       </div>

@@ -11,9 +11,9 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div style={{display: 'flex', flexDirection: 'column'}}>
+      <div className="flex flex-col">
         <Navbar />
-        <div className="h-[80vh] w-screen">
+        <div className="w-screen">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path='/compare' element={<Compare />} />
