@@ -5,16 +5,21 @@
 export default function LeftPanel({ children }) {
   return (
     <aside
-      className='flex flex-col gap-4 p-5 h-full'
+      className='flex flex-col gap-4 p-5'
       style={{
-        width: '480px',
-        background: 'var(--color-paper)',
-        borderRight: '1px solid var(--color-subtle)',
+        width: '350px',
+        // minWidth: '280px',
+        background: 'var(--color-panel)',
+        borderRight: '3px solid var(--color-ink)',
+        position: 'sticky',
+        top: 0,
+        alignSelf: 'flex-start',
+        height: '100vh',
+        overflowY: 'auto',
       }}
     >
       {children}
     </aside>
   );
+}
 
-
-};
