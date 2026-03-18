@@ -17,7 +17,6 @@ app.get('/homepage/trending_this_year', routes.getTrendingThisYear);
 app.get('/homepage/family_dynasties', routes.getFamilyDynasties);
 app.get('/homepage/surprise_me', routes.getSurprisePerson);
 app.get('/search', routes.search);
-app.get('/search/advanced', routes.advancedSearch);
 app.get('/compare', routes.compareAvsB);
 app.get('/person/:person_id', routes.getPersonProfile);
 app.get('/person/:person_id/family', routes.getPersonFamliy);

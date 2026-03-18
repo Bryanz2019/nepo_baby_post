@@ -1,12 +1,13 @@
 const { Pool, types } = require('pg');
-const config = require('./config.json')
+const { expect } = require('@jest/globals');
+const config = require('../config.json')
+const request = require('supertest');
+const app = require('../server');
 
 // Override the default parsing for BIGINT (PostgreSQL type ID 20)
 types.setTypeParser(20, val => parseInt(val, 10));
-// // When see a DATE, just return the raw string
-// types.setTypeParser(1082, (val) => val);
 
-const connection = new Pool({
+const testcon = new Pool({
   host: config.rds_host,
   user: config.rds_user,
   password: config.rds_password,
@@ -14,16 +15,18 @@ const connection = new Pool({
   database: config.rds_db,
   ssl: config.rds_sslmode === 'require' ? { rejectUnauthorized: false } : false
 });
-connection.connect((err) => err && console.log(err));
+testcon.connect((err) => err && console.log(err));
+
+//set up timeout for longer running time in ms
+const timeout = 4 *60*1000;
 
 
-/*************
- * Home page *
- *************/
 
-// Route 1: GET /homepage/top_nepo_babies
-const getTopNepoBabies = async function(req, res) {
-  connection.query(`
+test('GET /homepage/top_nepo_babies', async () => {
+
+  const apiResponse = await request(app).get('/homepage/top_nepo_babies');
+
+  const sqlResult = await testcon.query(`
     WITH kinship_agg AS (
       SELECT
           person_id,
@@ -104,20 +107,20 @@ const getTopNepoBabies = async function(req, res) {
       p.person_id
 
     LIMIT 100;
-  `, (err, data) => {
-    if (err) {
-      console.log(err);
-      res.json({});
-    } else {
-      res.json(data.rows);
-    }
-  });
-}
+  `);
 
-// Route 2: GET /homepage/trending_this_year
-const getTrendingThisYear = async function(req, res) {
-  connection.query(`
-WITH rated_titles_this_year AS (
+  expect(apiResponse.body).toEqual(sqlResult.rows);
+
+}, timeout);
+
+
+
+test('GET /homepage/trending_this_year', async () => {
+
+  const apiResponse = await request(app).get('/homepage/trending_this_year');
+
+  const sqlResult = await testcon.query(`
+    WITH rated_titles_this_year AS (
    SELECT DISTINCT
        p.person_id,
        p.name,
@@ -166,20 +169,19 @@ GROUP BY person_id, name, nepo_score
 ORDER BY nepo_score        DESC,
         total_votes_this_year DESC
 LIMIT 100;
-  `, (err, data) => {
-    if (err) {
-      console.log(err);
-      res.json({});
-    } else {
-      res.json(data.rows);
-    }
-  });
-}
+  `);
 
-// Route 3: GET /homepage/family_dynasties
-const getFamilyDynasties = async function(req, res) {
-  connection.query(`
-WITH family_dynasty AS (
+  expect(apiResponse.body).toEqual(sqlResult.rows);
+
+}, timeout);
+
+
+test('GET /homepage/family_dynasties', async () => {
+
+  const apiResponse = await request(app).get('/homepage/family_dynasties');
+
+  const sqlResult = await testcon.query(`
+    WITH family_dynasty AS (
    SELECT DISTINCT
        CASE
            WHEN SPLIT_PART(TRIM(related.name), ' ', -1) ~* '^(jr\.?|sr\.?|ii|iii|iv|v|vi)$'
@@ -270,57 +272,20 @@ GROUP BY dm.dynasty_name
 HAVING COUNT(DISTINCT dm.member_id) >= 2
 ORDER BY avg_nepo_score DESC
 LIMIT 20;
-  `, (err, data) => {
-    if (err) {
-      console.log(err);
-      res.json({});
-    } else {
-      res.json(data.rows);
-    }
-  });
-}
+  `);
 
-// Route 4: GET /homepage/surprise_me
-const getSurprisePerson = async function(req, res) {
-  connection.query(`
-  SELECT
-    p.person_id,
-    p.name,
-    p.birthdate,
-    ns.nepo_score
-  FROM core.person p
-          JOIN core.neposcore ns
-              ON ns.person_id = p.person_id
-  WHERE ns.nepo_score > 0
-  ORDER BY RANDOM()
-  LIMIT 1;
-  `, (err, data) => {
-    if (err) {
-      console.log(err);
-      res.json({});
-    } else {
-      res.json(data.rows[0]);
-    }
-  });
-}
+  expect(apiResponse.body).toEqual(sqlResult.rows);
 
-/***************
- * Search page *
- ***************/
+}, timeout);
 
-// Route 5: GET /search
-const search = async function(req, res) {
-  const keyword = req.query.keyword;
-  const category = req.query.category ? req.query.category
-                          .split(',').map(item => `'${item}'`)
-                          .join(', ') : "'ALL'";
 
-  if (!keyword || keyword.trim() === "") {
-    return res.json({});
-  }
-  connection.query(`
-    WITH k AS (
-   SELECT '%' || LOWER('${keyword}') || '%' AS kw
+test('GET /search', async () => {
+
+  const apiResponse = await request(app).get('/search?keyword=brat&category=director,writer,actress');
+
+  const sqlResult = await testcon.query(`
+WITH k AS (
+   SELECT '%' || LOWER('brat') || '%' AS kw
 )
 SELECT
    p.person_id,
@@ -349,9 +314,9 @@ FROM core.person p
         CROSS JOIN k
 WHERE LOWER(p.name) LIKE k.kw
  AND (
-   ARRAY[${category}] = ARRAY['ALL']
+   ARRAY['director','writer','actress'] = ARRAY['ALL']
        OR NOT EXISTS (
-       SELECT UNNEST(ARRAY[${category}]::text[]) AS cat
+       SELECT UNNEST(ARRAY['director','writer','actress']::text[]) AS cat
        EXCEPT
        SELECT LOWER(pr.category)
        FROM core.principal pr
@@ -360,27 +325,17 @@ WHERE LOWER(p.name) LIKE k.kw
    )
 ORDER BY nepo_score DESC NULLS LAST, p.name
 LIMIT 100;
-  `, (err, data) => {
-    if (err) {
-      console.log(err);
-      res.json({});
-    } else {
-      if (data.rows && data.rows.length > 0) {
-        res.json(data.rows);
-      } else {
-        res.json({});
-      }
-    }
-  });
-}
+  `);
 
-/***********************
- * Personal page *
- ***********************/
+  expect(apiResponse.body).toEqual(sqlResult.rows);
 
-// Route 6: GET /person/:person_id
-const getPersonProfile = async function(req, res) {
-  connection.query(`
+}, timeout);
+
+test('GET /person/:person_id', async () => {
+
+  const apiResponse = await request(app).get('/person/Q13147738');
+
+  const sqlResult = await testcon.query(`
 WITH base_person AS (
    SELECT
        p.person_id,
@@ -392,7 +347,7 @@ WITH base_person AS (
                'https://static.wikia.nocookie.net/pbskidsgo/images/5/57/Curious-George.jpg/revision/latest/scale-to-width-down/250?cb=20120712224008'
        ) AS image_url
    FROM core.person p
-   WHERE p.person_id = '${req.params.person_id}'
+   WHERE p.person_id = 'Q13147738'
 ),
 
 
@@ -548,66 +503,23 @@ GROUP BY
    cs.avg_rating,
    cs.total_votes,
    cs.top_categories;
-  `, (err, data) => {
-    if (err) {
-      console.log(err);
-      res.json({});
-    } else {
-      res.json(data.rows);
-    }
-  });
-}
+  `);
 
-// PLACEHOLDER   Route 7: GET /person/:person_id/family 
-const getPersonFamliy = async function(req, res) {
-  connection.query(`
-    SELECT *
-    FROM core.person
-    LIMIT 10
-  `, (err, data) => {
-    if (err) {
-      console.log(err);
-      res.json({});
-    } else {
-      res.json(data.rows);
-    }
-  });
-}
+  expect(apiResponse.body).toEqual(sqlResult.rows);
 
-// PLACEHOLDER     Route 8: GET /person/:person_id/collaborators
-const getPersonCollaborators = async function(req, res) {
-  connection.query(`
-    SELECT *
-    FROM core.person
-    LIMIT 10
-  `, (err, data) => {
-    if (err) {
-      console.log(err);
-      res.json({});
-    } else {
-      res.json(data.rows);
-    }
-  });
-}
+}, timeout);
 
-/*******************
- * Comparison page *
- *******************/
 
-// QUERY NEEDS CHANGES Route 10: GET /compare
-const compareAvsB = async function(req, res) {
-  const nameA = req.query.person_name_a ?? '';
-  const nameB = req.query.person_name_b ?? '';
+test('GET /compare', async () => {
 
-  if (!nameA || !nameB) {
-      return res.json({});
-    }
+  const apiResponse = await request(app).
+  get('/compare?person_name_a=Brad%20Pitt&person_name_b=Angelina%20Jolie');
 
-  connection.query(`
-        WITH params(person_name) AS (
+  const sqlResult = await testcon.query(`
+    WITH params(person_name) AS (
       VALUES
-      ('${nameA}'),
-      ('${nameB}')
+        ('Brad Pitt'),
+        ('Angelina Jolie')
     ),
 
 
@@ -812,73 +724,63 @@ const compareAvsB = async function(req, res) {
     LEFT JOIN nepo               n  ON n.person_id  = p.person_id
     LEFT JOIN relative_counts    rc ON rc.person_id = p.person_id
     ORDER BY p.person_id;
-  `, (err, data) => {
-    if (err) {
-      console.log(err);
-      res.json({});
-    } else {
-      res.json({person_name_a: data.rows[0], 
-        person_name_b: data.rows[1]});
-    }
-  });
-}
+  `);
 
-/*******************
- * Analysis page *
- *******************/
+  expect(apiResponse.body).toEqual({
+    person_name_a: sqlResult.rows[0],
+    person_name_b: sqlResult.rows[1]
+});
 
-// Route 11: GET /analysis/nepo_participation_industry
+}, timeout);
 
-const getNepoParticipationIndustry = async function(req, res) {
-  const start_year = req.query.start_year ?? 1900;
-  const end_year = req.query.end_year ?? 2026;
 
-  if (start_year > end_year) {
-    return res.json({})
-  }
 
-  connection.query(`
-    WITH nepoflag AS (
-      SELECT DISTINCT k.person_id
-      FROM core.kinship k
-      LEFT JOIN core.person p
-          ON p.person_id = k.related_person_id
-      WHERE p.nconst IS NOT NULL
-    ),
-    YearlyStats AS (
-      SELECT
-        t.start_year AS release_year,
-        COUNT(DISTINCT t.tconst) AS total_movie_count,
-        COUNT(DISTINCT CASE
-            WHEN n.person_id IS NOT NULL THEN t.tconst
-        END) AS movies_with_nepo_participation
-      FROM core.title t
-          LEFT JOIN core.principal tp ON t.tconst = tp.tconst
-          LEFT JOIN core.person p ON tp.nconst = p.nconst
-          LEFT JOIN nepoflag n ON p.person_id = n.person_id
-    WHERE t.title_type = 'movie' AND t.start_year IS NOT NULL
-    GROUP BY t.start_year
-    )
-    SELECT
-    release_year,
-    movies_with_nepo_participation,
-    total_movie_count
-    FROM YearlyStats
-    WHERE release_year BETWEEN ${start_year} AND ${end_year}
-    ORDER BY release_year ASC;
-  `, (err, data) => {
-    if (err) {
-      console.log(err);
-      res.json({});
-    } else {
-      res.json(data.rows);
-    }
-  });
-}
+test('GET /analysis/nepo_participation_industry', async () => {
 
-// Route 12: GET /analysis/top_nepo_collaborations
-const getTopNepoCollaborations = async function(req, res) {
-  connection.query(`
+  const apiResponse = await request(app).get('/analysis/nepo_participation_industry?start_year=1980&end_year=2020');
+
+  const sqlResult = await testcon.query(`
+WITH nepoflag AS (
+   SELECT DISTINCT k.person_id
+   FROM core.kinship k
+   LEFT JOIN core.person p
+       ON p.person_id = k.related_person_id
+   WHERE p.nconst IS NOT NULL
+),
+YearlyStats AS (
+  SELECT
+     t.start_year AS release_year,
+     COUNT(DISTINCT t.tconst) AS total_movie_count,
+     COUNT(DISTINCT CASE
+         WHEN n.person_id IS NOT NULL THEN t.tconst
+     END) AS movies_with_nepo_participation
+  FROM core.title t
+      LEFT JOIN core.principal tp ON t.tconst = tp.tconst
+      LEFT JOIN core.person p ON tp.nconst = p.nconst
+      LEFT JOIN nepoflag n ON p.person_id = n.person_id
+ WHERE t.title_type = 'movie' AND t.start_year IS NOT NULL
+ GROUP BY t.start_year
+)
+SELECT
+ release_year,
+ movies_with_nepo_participation,
+ total_movie_count
+FROM YearlyStats
+WHERE release_year BETWEEN 1980 AND 2020
+ORDER BY release_year ASC;
+  `);
+
+  expect(apiResponse.body).toEqual(sqlResult.rows);
+
+}, timeout);
+
+
+
+test('GET /analysis/top_nepo_collaborations', async () => {
+
+  const apiResponse = await request(app).get('/analysis/top_nepo_collaborations');
+
+  const sqlResult = await testcon.query(`
 SELECT
  p1.name AS person_name,
  p2.name AS colleague_name,
@@ -911,20 +813,20 @@ WHERE EXISTS (
 )
 ORDER BY total_collaborations DESC,person_name ASC
 LIMIT 25;
-  `, (err, data) => {
-    if (err) {
-      console.log(err);
-      res.json({});
-    } else {
-      res.json(data.rows);
-    }
-  });
-}
+  `);
 
-// Route 13: GET /analysis/nepo_industry_metrics
-const getNepoIndustryMetrics = async function(req, res) {
-  connection.query(`
-    WITH nepo_flag AS (
+  expect(apiResponse.body).toEqual(sqlResult.rows);
+
+}, timeout);
+
+
+
+test('GET /analysis/nepo_industry_metrics', async () => {
+
+  const apiResponse = await request(app).get('/analysis/nepo_industry_metrics');
+
+  const sqlResult = await testcon.query(`
+WITH nepo_flag AS (
       SELECT
           p.person_id,
           CASE
@@ -983,30 +885,20 @@ const getNepoIndustryMetrics = async function(req, res) {
       year,
       profession,
       nepo_status;
-  `, (err, data) => {
-    if (err) {
-      console.log(err);
-      res.json({});
-    } else {
-      res.json(data.rows);
-    }
-  });
-}
+  `);
 
-/*******************
- * Nepo Movie page *
- *******************/
+  expect(apiResponse.body).toEqual(sqlResult.rows);
 
-// Route 14: GET /movies/relative_collaboration_movies
-const getRelativeCollaborationMovies = async function(req, res) {
-  const page = req.query.page;
-  const pageSize = req.query.page_size ? req.query.page_size : 10
-  const offsetStr = page && page > 0
-  ? `LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`
-  : '';
+}, timeout);
 
-  connection.query(`
-      WITH one_movie_multi_rows AS (
+
+
+test('GET /movies/relative_collaboration_movies', async () => {
+
+  const apiResponse = await request(app).get('/movies/relative_collaboration_movies?page=6&pageSize=10');
+
+  const sqlResult = await testcon.query(`
+    WITH one_movie_multi_rows AS (
         SELECT
             rc.tconst,
             t.primary_title,
@@ -1068,30 +960,9 @@ const getRelativeCollaborationMovies = async function(req, res) {
       ORDER BY
         relative_pair_count DESC,
         primary_title
-      ${offsetStr};
-    `, (err, data) => {
-      if (err) {
-        console.log(err);
-        res.json({});
-      } else {
-        res.json(data.rows);
-      }
-    })
-  }
+      LIMIT 10 OFFSET 50;
+  `);
 
+  expect(apiResponse.body).toEqual(sqlResult.rows);
 
-module.exports = {
-  getTopNepoBabies,
-  getTrendingThisYear,
-  getFamilyDynasties,
-  getSurprisePerson,
-  search,
-  getPersonProfile,
-  getPersonFamliy,
-  getPersonCollaborators,
-  compareAvsB,
-  getNepoParticipationIndustry,
-  getTopNepoCollaborations,
-  getNepoIndustryMetrics,
-  getRelativeCollaborationMovies,
-}
+}, timeout);
