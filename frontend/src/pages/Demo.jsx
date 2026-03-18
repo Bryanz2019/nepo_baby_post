@@ -1,6 +1,6 @@
 import catmeme from '../assets/catmeme.gif';
 import Button from '../components/Button';
-import NepoTable from '../components/NepoTitlesTable';
+import NepoTable from '../components/NepoTable';
 import LeftPanel from '../components/LeftPanel';
 
 const MOCK_DATA = [
@@ -25,7 +25,7 @@ const COLUMNS = [
   },
   {
     header: 'YEAR',
-    color: 'var(--color-subtle)',
+    color: 'var(--color-muted)',
     renderCell: (row) => row.start_year,
   },
   {
@@ -57,7 +57,7 @@ function Demo() {
 
       {/* Left panel — sticky, scrolls internally if content overflows */}
       <LeftPanel />
-
+      <LeftPanel />
       {/* Right pane — scrolls independently, never overlaps navbar */}
       <div className='flex flex-col flex-1 min-w-0 gap-4 p-6 overflow-y-auto h-full'>
 

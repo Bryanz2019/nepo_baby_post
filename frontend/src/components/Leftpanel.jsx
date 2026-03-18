@@ -2,24 +2,13 @@
 // Slots: label, headline, subheadline, description, image, stat, statsTable, methodology
 // All children are optional — pass nothing for a blank panel
 
-export default function LeftPanel({ children }) {
+export default function LeftPanel({ children, className = "", ...props }) {
   return (
     <aside
-      className='flex flex-col gap-4 p-5'
-      style={{
-        width: '450px',
-        // minWidth: '280px',
-        background: 'var(--color-panel)',
-        borderRight: '3px solid var(--color-ink)',
-        position: 'sticky',
-        top: 0,
-        alignSelf: 'flex-start',
-        height: '100vh',
-        overflowY: 'auto',
-      }}
+      className={`flex flex-col gap-4 p-5 sticky top-[20vh] self-start h-[80vh] overflow-y-auto bg-panel border-r-[3px] border-ink w-[280px] min-w-[280px] ${className}`}
+      {...props}
     >
       {children}
     </aside>
   );
 }
-

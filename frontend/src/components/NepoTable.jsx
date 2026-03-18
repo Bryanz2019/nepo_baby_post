@@ -4,15 +4,15 @@
 //   data    — array of row objects (any shape)
 //   columns — array of column definitions:
 //     {
-//       key:        string         — unique key for this column/optional/fall back to position index
+//       key:        string         — unique key for this column
 //       header:     string         — column header label
 //       renderCell: (row) => node  — optional custom renderer (supports JSX, buttons, etc.)
 //       color:      string         — optional CSS color for cell text (dynamic → style)
 //     }
 
-export default function NepoTable({ data = [], columns = [] }) {
+export default function NepoTable({ data = [], columns = [], className = "", ...props }) {
   return (
-    <div className='w-full overflow-x-auto bg-panel'>
+    <div className={`w-full overflow-x-auto bg-panel ${className}`} {...props}>
       <table className='w-full border-collapse'>
 
         {/* Header — ink bg, muted text */}
@@ -20,8 +20,8 @@ export default function NepoTable({ data = [], columns = [] }) {
           <tr>
             {columns.map((col, idx) => (
               <th
-                key={col.key ?? idx} /* optional/fall back to position index */
-                className='label-medium text-left px-4 py-2.5 whitespace-nowrap bg-ink text-warning'
+                key={col.key ?? idx}
+                className='label-medium text-left px-4 py-2.5 whitespace-nowrap bg-ink text-muted'
               >
                 {col.header}
               </th>
