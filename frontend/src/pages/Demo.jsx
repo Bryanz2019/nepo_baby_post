@@ -24,26 +24,26 @@ const COLUMNS = [
     renderCell: (row) => row.primary_title,
   },
   {
-    // key: 'start_year',
     header: 'YEAR',
     color: 'var(--color-subtle)',
     renderCell: (row) => row.start_year,
   },
   {
-    // key: 'genre',
     header: 'GENRE',
     color: 'var(--color-muted)',
     renderCell: (row) => row.genre,
   },
   {
-    // key: 'professions',
     header: 'PROFESSIONS',
     renderCell: (row) => (
       <div className='flex flex-row flex-wrap gap-1'>
         {row.professions.map(p => (
-          <Button key={p} className='always-active border-0 w-12 h-4.5 flex items-end bg-var(--color-ink)-700 text-panel shadow-none'>
+          <span
+            key={p}
+            className='label-tiny px-2 py-0.5 bg-red text-paper'
+          >
             {p}
-          </Button>
+          </span>
         ))}
       </div>
     ),
@@ -52,19 +52,21 @@ const COLUMNS = [
 
 function Demo() {
   return (
-    <div className='flex flex-row w-full h-full' style={{ alignItems: 'flex-start' }}>
+    // h-full fills the content area below the navbar; flex-row splits left/right
+    <div className='flex flex-row w-full h-full overflow-hidden'>
 
-      {/* Left panel */}
+      {/* Left panel — sticky, scrolls internally if content overflows */}
       <LeftPanel />
 
-      {/* Right: buttons top, table bottom */}
-      <div className='flex flex-col flex-1 min-w-0 gap-4 p-6'>
+      {/* Right pane — scrolls independently, never overlaps navbar */}
+      <div className='flex flex-col flex-1 min-w-0 gap-4 p-6 overflow-y-auto h-full'>
 
+        {/* Button demo */}
         <div className='flex flex-col items-center justify-center gap-4 w-full'>
           <img src={catmeme} alt="Nepo logo" />
           <div>Custom Button Demo</div>
           <div>'Just some examples, go crazy!'</div>
-          <div className='flex flex-row items-center justify-center gap-2'>
+          <div className='flex flex-row items-center justify-center flex-wrap gap-2'>
             <Button className="m-2">Inactive until Clicked</Button>
             <Button className="always-active m-2">Always Active</Button>
             <Button className="always-active m-2 border-8">Always Active With Border</Button>
@@ -75,6 +77,7 @@ function Demo() {
           </div>
         </div>
 
+        {/* Table */}
         <NepoTable data={MOCK_DATA} columns={COLUMNS} />
 
       </div>
