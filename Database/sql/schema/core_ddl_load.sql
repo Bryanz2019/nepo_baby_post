@@ -1644,40 +1644,23 @@ ON core.mv_collaborator_pairs (nconst_2);
 -- DEPENDS ON: core.mv_collaborator_pairs, core.person, core.kinship
 
 CREATE MATERIALIZED VIEW core.mv_relative_collaborator_pairs AS
-   SELECT
-       cp.tconst,
-       p1.person_id AS person_id_1,
-       p1.name AS person_name_1,
-       p2.person_id AS person_id_2,
-       p2.name AS person_name_2,
-       k.kinship
-   FROM core.mv_collaborator_pairs cp
-   JOIN core.person p1
-     ON p1.nconst = cp.nconst_1
-   JOIN core.person p2
-     ON p2.nconst = cp.nconst_2
-   JOIN core.kinship k
-     ON (k.person_id = p1.person_id AND k.related_person_id = p2.person_id)
-
-
-   UNION ALL
-
-
-   SELECT
-       cp.tconst,
-       p1.person_id AS person_id_1,
-       p1.name AS person_name_1,
-       p2.person_id AS person_id_2,
-       p2.name AS person_name_2,
-       k.kinship
-   FROM core.mv_collaborator_pairs cp
-   JOIN core.person p1
-     ON p1.nconst = cp.nconst_1
-   JOIN core.person p2
-     ON p2.nconst = cp.nconst_2
-   JOIN core.kinship k
-     ON (k.person_id = p2.person_id AND k.related_person_id = p1.person_id);
-
+SELECT DISTINCT
+    cp.tconst,
+    p1.person_id AS person_id_1,
+    p1.name AS person_name_1,
+    p2.person_id AS person_id_2,
+    p2.name AS person_name_2,
+    k.kinship
+FROM core.mv_collaborator_pairs cp
+JOIN core.person p1
+  ON p1.nconst = cp.nconst_1
+JOIN core.person p2
+  ON p2.nconst = cp.nconst_2
+JOIN core.kinship k
+  ON (k.person_id = p1.person_id AND k.related_person_id = p2.person_id) OR (k.person_id = p2.person_id AND k.related_person_id = p1.person_id)
+WHERE k.kinship NOT IN ('SPOUSE', 'UNKNOWN', 'RELATIVE', 'CHILD', 'GRANDCHILD', 'NIECE_NEPHEW', 'GREAT_NIECE_NEPHEW', 'DESCENDANT')
+  AND k.kinship NOT LIKE '%IN-LAWS'
+  AND k.kinship NOT LIKE 'STEP%';
 
 CREATE INDEX idx_mv_relative_collaborator_pairs_tconst
 ON core.mv_relative_collaborator_pairs (tconst);
