@@ -7,8 +7,7 @@ export default function LeftPanel({ children }) {
     <aside
       className='flex flex-col gap-4 p-5 h-full'
       style={{
-        width: '280px',
-        minWidth: '280px',
+        width: '480px',
         background: 'var(--color-paper)',
         borderRight: '1px solid var(--color-subtle)',
       }}

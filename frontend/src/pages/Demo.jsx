@@ -5,6 +5,16 @@ import LeftPanel from '../components/LeftPanel';
 
 function Demo() {
   return (
+    <div className='flex flex-row w-full h-full' style={{ alignItems: 'flex-start' }}>
+
+      {/* Left panel */}
+      <LeftPanel>
+        
+      </LeftPanel>
+
+      {/* Right: buttons top, table bottom */}
+      <div className='flex flex-col flex-1 min-w-0 gap-4 p-6'>
+
     <div className='flex flex-col items-center justify-center gap-4 h-full w-full'>
       <img src={catmeme} alt="Nepo logo" />
       <div>Custom Button Demo</div>
@@ -18,16 +28,10 @@ function Demo() {
         <Button className="border-0 w-12 h-4.5 flex items-end bg-yellow-700 text-panel">Director</Button>
         <Button className="border-0 always-active w-80">Always Active With Different Size</Button>
       </div>
-
-      {/* Panel + Table demo */}
-      <div className='flex flex-row w-full max-w-6xl px-8 mt-4' style={{ alignItems: 'flex-start' }}>
-        <LeftPanel>
-         
-        </LeftPanel>
-
-        <div className='flex-1 min-w-0'>
-          <NepoTitlesTable />
         </div>
+
+        <NepoTitlesTable />
+
       </div>
     </div>
   );
