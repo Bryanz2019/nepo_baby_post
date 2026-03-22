@@ -3,11 +3,12 @@ import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Compare from './pages/Compare';
 import EvidenceBoard from './pages/EvidenceBoard';
-import NepoPair from './pages/NepoPair';
+import TheScore from './pages/TheScore';
 import Collaborations from './pages/Collaborations';
 import Demo from './pages/Demo';
 
 function App() {
+
   return (
     <BrowserRouter>
       <div className="flex flex-col">
@@ -17,7 +18,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path='/compare' element={<Compare />} />
             <Route path='/evidence_board' element={<EvidenceBoard />} />
-            <Route path='/nepo_pair' element={<NepoPair />} />
+            <Route path='/the_score' element={<TheScore />} />
             <Route path='/collaborations' element={<Collaborations />} />
             <Route path='/demo' element={<Demo />} />
           </Routes>
