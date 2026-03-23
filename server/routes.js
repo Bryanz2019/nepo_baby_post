@@ -594,7 +594,7 @@ const getPersonCollaborators = async function(req, res) {
  * Comparison page *
  *******************/
 
-// QUERY NEEDS CHANGES Route 10: GET /compare
+// Route 10: GET /compare
 const compareAvsB = async function(req, res) {
   const nameA = req.query.person_name_a ?? '';
   const nameB = req.query.person_name_b ?? '';
@@ -811,14 +811,15 @@ const compareAvsB = async function(req, res) {
     LEFT JOIN awards             a  ON a.person_id  = p.person_id
     LEFT JOIN nepo               n  ON n.person_id  = p.person_id
     LEFT JOIN relative_counts    rc ON rc.person_id = p.person_id
-    ORDER BY p.person_id;
+    ORDER BY CASE WHEN LOWER(p.name) = LOWER('${nameA}') THEN 0 ELSE 1 END;
   `, (err, data) => {
     if (err) {
       console.log(err);
       res.json({});
     } else {
-      res.json({person_name_a: data.rows[0], 
-        person_name_b: data.rows[1]});
+      const rowA = data.rows.find(r => r.name.toLowerCase() === nameA.toLowerCase()) ?? null;
+      const rowB = data.rows.find(r => r.name.toLowerCase() === nameB.toLowerCase()) ?? null;
+      res.json({ person_name_a: rowA, person_name_b: rowB });
     }
   });
 }
