@@ -369,11 +369,12 @@ LIMIT 100;
       console.log(err);
       res.json({});
     } else {
-      if (data.rows && data.rows.length > 0) {
-        res.json(data.rows);
-      } else {
-        res.json({});
-      }
+      // if (data.rows && data.rows.length > 0) {
+      //   res.json(data.rows);
+      // } else {
+      //   res.json({});
+      // }
+      res.json(data.rows);
     }
   });
 }
