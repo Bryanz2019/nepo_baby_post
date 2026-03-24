@@ -408,7 +408,7 @@ WITH base_person AS (
             COUNT(*) AS category_count
         FROM core.principal pr
                  JOIN base_person bp USING (nconst)
-        WHERE pr.category NOT IN ('self', 'archive_footage')
+        WHERE pr.category NOT IN ('self', 'archive_footage', 'archive_sound')
         GROUP BY pr.nconst, pr.category
     ),
 
@@ -457,7 +457,7 @@ WITH base_person AS (
                              COUNT(DISTINCT pr2.tconst) AS title_count
                          FROM core.principal pr2
                                   JOIN base_person bp2 USING (nconst)
-                         WHERE pr2.category NOT IN ('self', 'archive_footage')
+                         WHERE pr2.category NOT IN ('self', 'archive_footage','archive_sound')
                          GROUP BY pr2.category
                          ORDER BY title_count DESC
                          LIMIT 3
@@ -472,7 +472,7 @@ WITH base_person AS (
 
 
     top_titles AS (
-        SELECT
+        SELECT distinct
             t.tconst,
             t.primary_title,
             t.title_type,
