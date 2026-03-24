@@ -6,6 +6,7 @@ import EvidenceBoard from './pages/EvidenceBoard';
 import NepoPair from './pages/NepoPair';
 import Collaborations from './pages/Collaborations';
 import Demo from './pages/Demo';
+import IndustryPage from './pages/IndustryPage';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
             <Route path='/nepo_pair' element={<NepoPair />} />
             <Route path='/collaborations' element={<Collaborations />} />
             <Route path='/demo' element={<Demo />} />
+            <Route path='/industry' element={<IndustryPage />} />
           </Routes>
         </div>
       </div>

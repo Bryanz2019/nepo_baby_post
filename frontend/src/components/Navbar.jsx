@@ -37,9 +37,10 @@ const styles = {
 
 
 function Navbar() {
-  const allTabs = ['home', 'about', 'contact'];
+  const allTabs = ['home', 'comparison', 'analysis', 'score', 'collaborations', 'industry', 'demo'];
   const [visitedTabs, setVisitedTabs] = useState(new Set(['home']));
   const [showModal, setShowModal] = useState(false);
+
   const handleTabClick = (tabId) => {
     setVisitedTabs(prev => new Set(prev).add(tabId));
   };
@@ -50,6 +51,9 @@ function Navbar() {
       setVisitedTabs(prev => new Set(prev).add('all'));
     }
   }, [visitedTabs]);
+
+  const navLinkClass = ({ isActive }) =>
+    `px-4 py-1 label-medium [.active-link&]:bg-red [&.active-link]:text-paper text-subtle ${isActive ? 'active-link' : 'inactive-link'}`;
 
   return (
     <>
@@ -62,12 +66,13 @@ function Navbar() {
           </div>
         </NavLink>
         <ul className="nav-menu w-full h-3/16">
-          <li><NavLink to="/" className={({ isActive }) => `px-4 py-1 label-medium [.active-link&]:bg-red [&.active-link]:text-paper text-subtle ${isActive ? 'active-link' : 'inactive-link'}`} onClick={() => handleTabClick('home')}>FRONT PAGE</NavLink></li>
-          <li><NavLink to="/compare" className={({ isActive }) => `px-4 py-1 label-medium [.active-link&]:bg-red [&.active-link]:text-paper text-subtle ${isActive ? 'active-link' : 'inactive-link'}`} onClick={() => handleTabClick('comparison')}>COMPARE</NavLink></li>
-          <li><NavLink to="/evidence_board" className={({ isActive }) => `px-4 py-1 label-medium [.active-link&]:bg-red [&.active-link]:text-paper text-subtle ${isActive ? 'active-link' : 'inactive-link'}`} onClick={() => handleTabClick('analysis')}>EVIDENCE BOARD</NavLink></li>
-          <li><NavLink to="/the_score" className={({ isActive }) => `px-4 py-1 label-medium [.active-link&]:bg-red [&.active-link]:text-paper text-subtle ${isActive ? 'active-link' : 'inactive-link'}`} onClick={() => handleTabClick('score')}>THE SCORE</NavLink></li>
-          <li><NavLink to="/collaborations" className={({ isActive }) => `px-4 py-1 label-medium [.active-link&]:bg-red [&.active-link]:text-paper text-subtle ${isActive ? 'active-link' : 'inactive-link'}`} onClick={() => handleTabClick('collaborations')}>COLLABORATIONS</NavLink></li>
-          <li><NavLink to="/demo" className={({ isActive }) => `px-4 py-1 label-medium [.active-link&]:bg-red [&.active-link]:text-paper text-subtle ${isActive ? 'active-link' : 'inactive-link'}`} onClick={() => handleTabClick('demo')}>DEMO: DO NOT DELETE</NavLink></li>
+          <li><NavLink to="/" className={navLinkClass} onClick={() => handleTabClick('home')}>FRONT PAGE</NavLink></li>
+          <li><NavLink to="/compare" className={navLinkClass} onClick={() => handleTabClick('comparison')}>COMPARE</NavLink></li>
+          <li><NavLink to="/evidence_board" className={navLinkClass} onClick={() => handleTabClick('analysis')}>EVIDENCE BOARD</NavLink></li>
+          <li><NavLink to="/the_score" className={navLinkClass} onClick={() => handleTabClick('score')}>THE SCORE</NavLink></li>
+          <li><NavLink to="/collaborations" className={navLinkClass} onClick={() => handleTabClick('collaborations')}>COLLABORATIONS</NavLink></li>
+          <li><NavLink to="/industry" className={navLinkClass} onClick={() => handleTabClick('industry')}>INDUSTRY REPORTS</NavLink></li>
+          <li><NavLink to="/demo" className={navLinkClass} onClick={() => handleTabClick('demo')}>DEMO: DO NOT DELETE</NavLink></li>
         </ul>
       </nav>
     </>
