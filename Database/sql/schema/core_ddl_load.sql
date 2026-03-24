@@ -46,6 +46,9 @@ CREATE TABLE IF NOT EXISTS core.person (
 CREATE INDEX IF NOT EXISTS idx_person_name
     ON core.person (name);
 
+-- Name search
+CREATE INDEX idx_person_name_lower ON core.person (LOWER(name));
+
 -- Load
 INSERT INTO core.person (
     person_id,
@@ -516,6 +519,11 @@ CREATE TABLE core.principal (
     -- updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 );
 
+-- Principal lookups by nconst
+CREATE INDEX idx_principal_nconst ON core.principal (nconst);
+
+-- Category filter
+CREATE INDEX idx_principal_nconst_category ON core.principal (nconst, LOWER(category));
 
 -- Load
 -- Original data is clean. No NULL or unexpected data.
@@ -637,6 +645,9 @@ ON core.rating (num_votes);
 
 CREATE INDEX IF NOT EXISTS idx_title_rating_average_rating
 ON core.rating (average_rating);
+
+-- Rating votes for best title sort
+CREATE INDEX idx_rating_votes ON core.rating (tconst, num_votes DESC);
 
 -- Load
 INSERT INTO core.rating (

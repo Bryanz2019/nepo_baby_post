@@ -325,6 +325,10 @@ const search = async function(req, res) {
 SELECT
    p.person_id,
    p.name,
+   COALESCE(
+           p.image_url,
+           'https://static.wikia.nocookie.net/pbskidsgo/images/5/57/Curious-George.jpg/revision/latest/scale-to-width-down/250?cb=20120712224008'
+   ) AS image_url,
    EXTRACT(YEAR FROM p.birthdate)::int                     AS birth_year,
    COALESCE(ns.nepo_score, 0)                              AS nepo_score,
    COALESCE(pp.person_point, 0)                            AS person_point,
@@ -365,11 +369,12 @@ LIMIT 100;
       console.log(err);
       res.json({});
     } else {
-      if (data.rows && data.rows.length > 0) {
-        res.json(data.rows);
-      } else {
-        res.json({});
-      }
+      // if (data.rows && data.rows.length > 0) {
+      //   res.json(data.rows);
+      // } else {
+      //   res.json({});
+      // }
+      res.json(data.rows);
     }
   });
 }
