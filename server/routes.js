@@ -400,16 +400,17 @@ WITH base_person AS (
    WHERE p.person_id = '${req.params.person_id}'
 ),
 
-profession_counts AS (
-    SELECT
-        pr.nconst,
-        pr.category,
-        COUNT(*) AS category_count
-    FROM core.principal pr
-             JOIN base_person bp USING (nconst)
-    WHERE pr.category NOT IN ('self', 'archive_footage')
-    GROUP BY pr.nconst, pr.category
-),
+    profession_counts AS (
+        SELECT
+            pr.nconst,
+            pr.category,
+            COUNT(*) AS category_count
+        FROM core.principal pr
+                 JOIN base_person bp USING (nconst)
+        WHERE pr.category NOT IN ('self', 'archive_footage', 'archive_sound')
+        GROUP BY pr.nconst, pr.category
+    ),
+
 
 profession_agg AS (
     SELECT
@@ -436,74 +437,57 @@ kinship_summary AS (
              JOIN base_person bp USING (person_id)
 ),
 
-career_summary AS (
-    SELECT
-        COUNT(DISTINCT pr.tconst)                                               AS total_titles,
-        COUNT(DISTINCT CASE WHEN pr.category = 'actor'    THEN pr.tconst END)  AS acting_titles,
-        COUNT(DISTINCT CASE WHEN pr.category = 'director' THEN pr.tconst END)  AS directing_titles,
-        MIN(t.start_year)                                                        AS career_start_year,
-        MAX(t.start_year)                                                        AS latest_title_year,
-        AVG(rt.average_rating)::NUMERIC(10, 2)                                  AS avg_rating,
-        SUM(rt.num_votes)                                                        AS total_votes,
-        (
-            SELECT JSONB_AGG(cat_counts ORDER BY title_count DESC)
-            FROM (
-                     SELECT
-                         pr2.category,
-                         COUNT(DISTINCT pr2.tconst) AS title_count
-                     FROM core.principal pr2
-                              JOIN base_person bp2 USING (nconst)
-                     WHERE pr2.category NOT IN ('self', 'archive_footage')
-                     GROUP BY pr2.category
-                     ORDER BY title_count DESC
-                     LIMIT 3
-                 ) cat_counts
-        ) AS top_categories
-    FROM core.principal pr
-             JOIN base_person bp      USING (nconst)
-             LEFT JOIN core.title t   ON t.tconst  = pr.tconst
-             LEFT JOIN core.rating rt ON rt.tconst = pr.tconst
-    WHERE pr.category != 'self'
-),
+    career_summary AS (
+        SELECT
+            COUNT(DISTINCT pr.tconst)                                               AS total_titles,
+            COUNT(DISTINCT CASE WHEN pr.category = 'actor'    THEN pr.tconst END)  AS acting_titles,
+            COUNT(DISTINCT CASE WHEN pr.category = 'director' THEN pr.tconst END)  AS directing_titles,
+            MIN(t.start_year)                                                        AS career_start_year,
+            MAX(t.start_year)                                                        AS latest_title_year,
+            AVG(rt.average_rating)::NUMERIC(10, 2)                                  AS avg_rating,
+            SUM(rt.num_votes)                                                        AS total_votes,
+            (
+                SELECT JSONB_AGG(cat_counts ORDER BY title_count DESC)
+                FROM (
+                         SELECT
+                             pr2.category,
+                             COUNT(DISTINCT pr2.tconst) AS title_count
+                         FROM core.principal pr2
+                                  JOIN base_person bp2 USING (nconst)
+                         WHERE pr2.category NOT IN ('self', 'archive_footage','archive_sound')
+                         GROUP BY pr2.category
+                         ORDER BY title_count DESC
+                         LIMIT 3
+                     ) cat_counts
+            ) AS top_categories
+        FROM core.principal pr
+                 JOIN base_person bp      USING (nconst)
+                 LEFT JOIN core.title t   ON t.tconst  = pr.tconst
+                 LEFT JOIN core.rating rt ON rt.tconst = pr.tconst
+        WHERE pr.category != 'self'
+    ),
 
-top_titles AS (
-    SELECT DISTINCT ON (t.tconst)
-        t.tconst,
-        t.primary_title,
-        t.title_type,
-        t.start_year,
-        pr.category,
-        rt.average_rating,
-        rt.num_votes
-    FROM core.principal pr
-             JOIN base_person bp       USING (nconst)
-             JOIN core.title t         ON t.tconst  = pr.tconst
-             LEFT JOIN core.rating rt  ON rt.tconst = t.tconst
-    ORDER BY
-        t.tconst,
-        rt.average_rating DESC NULLS LAST,
-        rt.num_votes      DESC NULLS LAST,
-        t.start_year      DESC NULLS LAST
-    LIMIT 20
-),
 
-top_titles_agg AS (
-    SELECT JSONB_AGG(
-        JSONB_BUILD_OBJECT(
-            'tconst',         tconst,
-            'primary_title',  primary_title,
-            'title_type',     title_type,
-            'start_year',     start_year,
-            'category',       category,
-            'average_rating', average_rating,
-            'num_votes',      num_votes
-        )
-        ORDER BY average_rating DESC NULLS LAST,
-                 num_votes      DESC NULLS LAST,
-                 start_year     DESC NULLS LAST
-    ) AS top_titles
-    FROM top_titles
-)
+    top_titles AS (
+        SELECT distinct
+            t.tconst,
+            t.primary_title,
+            t.title_type,
+            t.start_year,
+            pr.category,
+            rt.average_rating,
+            rt.num_votes
+        FROM core.principal pr
+                 JOIN base_person bp       USING (nconst)
+                 JOIN core.title t         ON t.tconst  = pr.tconst
+                 LEFT JOIN core.rating rt  ON rt.tconst = t.tconst
+        ORDER BY
+            rt.average_rating DESC NULLS LAST,
+            rt.num_votes      DESC NULLS LAST,
+            t.start_year      DESC NULLS LAST
+        LIMIT 20
+    )
+
 
 SELECT
    bp.person_id,
@@ -577,7 +561,7 @@ const getPersonCollaborators = async function(req, res) {
  * Comparison page *
  *******************/
 
-// QUERY NEEDS CHANGES Route 10: GET /compare
+// Route 10: GET /compare
 const compareAvsB = async function(req, res) {
   const nameA = req.query.person_name_a ?? '';
   const nameB = req.query.person_name_b ?? '';
@@ -794,14 +778,15 @@ const compareAvsB = async function(req, res) {
     LEFT JOIN awards             a  ON a.person_id  = p.person_id
     LEFT JOIN nepo               n  ON n.person_id  = p.person_id
     LEFT JOIN relative_counts    rc ON rc.person_id = p.person_id
-    ORDER BY p.person_id;
+    ORDER BY CASE WHEN LOWER(p.name) = LOWER('${nameA}') THEN 0 ELSE 1 END;
   `, (err, data) => {
     if (err) {
       console.log(err);
       res.json({});
     } else {
-      res.json({person_name_a: data.rows[0], 
-        person_name_b: data.rows[1]});
+      const rowA = data.rows.find(r => r.name.toLowerCase() === nameA.toLowerCase()) ?? null;
+      const rowB = data.rows.find(r => r.name.toLowerCase() === nameB.toLowerCase()) ?? null;
+      res.json({ person_name_a: rowA, person_name_b: rowB });
     }
   });
 }
