@@ -186,7 +186,7 @@ export default function IndustryPage() {
   const activeTierMeta = TIERS.find((t) => t.key === activeTier);
 
   return (
-    <div className="flex w-full h-full bg-panel">
+    <div className="flex w-full h-full bg-paper">
       <LeftPanel>
         <div className="relative label-tiny text-red -mt-2">
           INDUSTRY TREND &nbsp;
@@ -221,8 +221,8 @@ export default function IndustryPage() {
         <div className="divider -my-1 -mx-4 p-0"></div>
       </LeftPanel>
 
-      <div className="flex-1 min-w-0 flex flex-col bg-panel overflow-y-auto">
-        <div className="w-full px-6 pt-6 pb-4 bg-panel border-b-[3px] border-ink">
+      <div className="flex-1 min-w-0 flex flex-col bg_paper overflow-y-auto">
+        <div className="w-full px-6 pt-6 pb-4 bg_panel border-b-[3px] border-ink">
           <div className="mb-2">
             <SectionLabel>Exclusive Intelligence Bureau · Industry Analysis</SectionLabel>
           </div>
@@ -269,37 +269,37 @@ export default function IndustryPage() {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chart1Data} margin={{ top: 10, right: 12, left: 10, bottom: 20 }} barGap={6}>
-                    <CartesianGrid strokeDasharray="3 4" stroke="var(--color-subtle)" vertical={false} />
-                    <XAxis
-                      dataKey="group"
-                      tick={{ fill: "var(--color-print)", fontSize: 10 }}
-                      tickLine={false}
-                      axisLine={false}
-                      interval={0}
-                      angle={-25}
-                      textAnchor="end"
-                      height={55}
-                    />
-                    <YAxis
-                      tick={{ fill: "var(--color-print)", fontSize: 11 }}
-                      tickLine={false}
-                      axisLine={false}
-                      width={40}
-                    />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend
-                      wrapperStyle={{ fontSize: "12px" }}
-                      formatter={(value) => (
-                        <span className="label-tiny text-print">
-                          {value === "nepo" ? "G1 Nepo" : "G2 Non-Nepo"}
-                        </span>
-                      )}
-                    />
-                    <Bar dataKey="nepo" name="G1 Nepo" fill="var(--color-red)" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="nonNepo" name="G2 Non-Nepo" fill="#1b3a5c" radius={[0, 0, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                    <BarChart data={chart1Data} margin={{ top: 10, right: 12, left: 0, bottom: 20 }} barGap={6}>
+                        <CartesianGrid strokeDasharray="3 4" stroke="var(--color-subtle)" vertical={false} />
+                        <XAxis
+                        dataKey="group"
+                        tick={{ fill: "var(--color-print)", fontSize: 10 }}
+                        tickLine={false}
+                        axisLine={false}
+                        interval={0}
+                        angle={-25}
+                        textAnchor="end"
+                        height={55}
+                        />
+                        <YAxis
+                        tick={{ fill: "var(--color-print)", fontSize: 11 }}
+                        tickLine={false}
+                        axisLine={false}
+                        width={40}
+                        />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Legend
+                        wrapperStyle={{ fontSize: "12px" }}
+                        formatter={(value) => (
+                            <span className="label-tiny text-print">
+                            {value}
+                            </span>
+                        )}
+                        />
+                        <Bar dataKey="nepo" name="G1 Nepo" fill="var(--color-red)" radius={[0, 0, 0, 0]} />
+                        <Bar dataKey="nonNepo" name="G2 Non-Nepo" fill="#1b3a5c" radius={[0, 0, 0, 0]} />
+                    </BarChart>
+                    </ResponsiveContainer>
               )}
             </div>
           </div>
