@@ -9,6 +9,7 @@ import Demo from './pages/Demo';
 import Person from "./pages/Person";
 import QuickFacts from "./pages/QuickFacts";
 import CareerDossier from "./pages/CareerDossier";
+import IndustryPage from './pages/IndustryPage';
 
 function App() {
   return (
@@ -22,6 +23,8 @@ function App() {
             <Route path='/evidence_board' element={<EvidenceBoard />} />
             <Route path='/nepo_pair' element={<NepoPair />} />
             <Route path='/collaborations' element={<Collaborations />} />
+            <Route path='/industry' element={<IndustryPage />} />
+
             <Route path='/demo' element={<Demo />} />
             <Route path='/person/:id' element={<Person />} >
               <Route index element={<QuickFacts />} />
