@@ -46,6 +46,8 @@ CREATE TABLE IF NOT EXISTS core.person (
 CREATE INDEX IF NOT EXISTS idx_person_name
     ON core.person (name);
 
+CREATE INDEX IF NOT EXISTS idx_person_nconst
+    ON core.person (nconst);
 -- Name search
 CREATE INDEX idx_person_name_lower ON core.person (LOWER(name));
 
@@ -975,7 +977,8 @@ WHERE mk.kinship = 'PARENT';
 CREATE INDEX idx_v2_pe_person ON tmp_parent_edges (person_id);
 CREATE INDEX idx_v2_pe_parent ON tmp_parent_edges (parent_id);
 
-
+CREATE INDEX IF NOT EXISTS idx_kinship_person_kinship_related
+    ON core.kinship (person_id, kinship, related_person_id);
 
 
 -- ============================================================
