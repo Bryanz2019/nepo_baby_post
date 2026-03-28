@@ -24,86 +24,130 @@ connection.connect((err) => err && console.log(err));
 // Route 1: GET /homepage/top_nepo_babies
 const getTopNepoBabies = async function(req, res) {
   connection.query(`
-    WITH kinship_agg AS (
-      SELECT
-          person_id,
-          COUNT(DISTINCT CASE WHEN kinship = 'PARENT'      THEN related_person_id END) AS parent_count,
-          COUNT(DISTINCT CASE WHEN kinship = 'GRANDPARENT' THEN related_person_id END) AS grandparent_count,
-          COUNT(DISTINCT CASE WHEN kinship NOT IN (
-                                                    'PARENT', 'GRANDPARENT',
-                                                    'SPOUSE', 'UNKNOWN', 'RELATIVE'
-              )
-              AND kinship NOT LIKE '%INLAW%'
-              AND kinship NOT LIKE 'STEP%'
-                                  THEN related_person_id END)                                               AS relative_count
-      FROM core.kinship
-      GROUP BY person_id
-    ),
-
-
-        title_agg AS (
-            SELECT
-                pr.nconst,
-                COUNT(DISTINCT pr.tconst)             AS total_titles,
-                AVG(r.average_rating)::NUMERIC(10, 2) AS avg_rating
-            FROM core.principal pr
-                    LEFT JOIN core.rating r ON r.tconst = pr.tconst
-            WHERE pr.category NOT IN ('self', 'archive_footage')
-            GROUP BY pr.nconst
-        ),
-
-
-        category_agg AS (
-            SELECT
-                nconst,
-                JSONB_AGG(
-                        JSONB_BUILD_OBJECT('category', category, 'title_count', title_count)
-                        ORDER BY title_count DESC
-                ) AS top_categories
-            FROM (
-                    SELECT
-                        nconst,
-                        category,
-                        COUNT(DISTINCT tconst) AS title_count,
-                        ROW_NUMBER() OVER (PARTITION BY nconst ORDER BY COUNT(DISTINCT tconst) DESC) AS rn
-                    FROM core.principal
-                    WHERE category NOT IN ('self', 'archive_footage')
-                    GROUP BY nconst, category
-                ) ranked
-            WHERE rn <= 3
-            GROUP BY nconst
-        )
-
-
+   WITH kinship_agg AS (
     SELECT
-      p.person_id,
-      p.name,
-      COALESCE(ns.nepo_score, 0) AS nepo_score,
+        person_id,
+        COUNT(DISTINCT CASE WHEN kinship = 'PARENT' THEN related_person_id END) AS parent_count,
+        COUNT(DISTINCT CASE WHEN kinship = 'GRANDPARENT' THEN related_person_id END) AS grandparent_count,
+        COUNT(DISTINCT CASE
+            WHEN kinship NOT IN ('PARENT', 'GRANDPARENT', 'SPOUSE', 'UNKNOWN', 'RELATIVE')
+             AND kinship NOT LIKE '%INLAW%'
+             AND kinship NOT LIKE 'STEP%'
+            THEN related_person_id
+        END) AS relative_count
+    FROM core.kinship
+    GROUP BY person_id
+),
 
-
-      COALESCE(k.parent_count,      0) AS parent_count,
-      COALESCE(k.grandparent_count, 0) AS grandparent_count,
-      COALESCE(k.relative_count,    0) AS relative_count,
-
-
-      COALESCE(t.total_titles, 0)      AS total_titles,
-      t.avg_rating,
-      c.top_categories
-
-
+base_top_100 AS (
+    SELECT
+        p.person_id,
+        p.nconst,
+        p.name,
+        EXTRACT(YEAR FROM p.birthdate)::INT AS birth_year,
+        COALESCE(
+            p.image_url,
+            'https://static.wikia.nocookie.net/pbskidsgo/images/5/57/Curious-George.jpg/revision/latest/scale-to-width-down/250?cb=20120712224008'
+        ) AS image_url,
+        COALESCE(ns.nepo_score, 0) AS nepo_score,
+        COALESCE(k.parent_count, 0) AS parent_count,
+        COALESCE(k.grandparent_count, 0) AS grandparent_count,
+        COALESCE(k.relative_count, 0) AS relative_count
     FROM core.person p
-            LEFT JOIN core.neposcore ns ON ns.person_id = p.person_id
-            LEFT JOIN kinship_agg    k  ON k.person_id  = p.person_id
-            LEFT JOIN title_agg      t  ON t.nconst     = p.nconst
-            LEFT JOIN category_agg   c  ON c.nconst     = p.nconst
-
-
+    LEFT JOIN core.neposcore ns
+        ON ns.person_id = p.person_id
+    LEFT JOIN kinship_agg k
+        ON k.person_id = p.person_id
     ORDER BY
-      nepo_score   DESC NULLS LAST,
-      total_titles DESC,
-      p.person_id
+        COALESCE(ns.nepo_score, 0) DESC,
+        p.person_id
+    LIMIT 100
+),
 
-    LIMIT 100;
+principal_base AS (
+    SELECT
+        b.person_id,
+        b.nconst,
+        pr.tconst,
+        pr.category
+    FROM base_top_100 b
+    JOIN core.principal pr
+        ON pr.nconst = b.nconst
+    WHERE pr.category NOT IN ('self', 'archive_footage')
+),
+
+title_stats AS (
+    SELECT
+        pb.nconst,
+        COUNT(DISTINCT pb.tconst) AS total_titles,
+        AVG(r.average_rating)::NUMERIC(10,2) AS avg_rating,
+        MIN(t.start_year) AS career_start_year
+    FROM principal_base pb
+    LEFT JOIN core.rating r
+        ON r.tconst = pb.tconst
+    LEFT JOIN core.title t
+        ON t.tconst = pb.tconst
+    GROUP BY pb.nconst
+),
+
+category_counts AS (
+    SELECT
+        pb.nconst,
+        pb.category,
+        COUNT(DISTINCT pb.tconst) AS title_count
+    FROM principal_base pb
+    GROUP BY pb.nconst, pb.category
+),
+
+category_ranked AS (
+    SELECT
+        nconst,
+        category,
+        title_count,
+        ROW_NUMBER() OVER (
+            PARTITION BY nconst
+            ORDER BY title_count DESC, category
+        ) AS rn
+    FROM category_counts
+),
+
+category_agg AS (
+    SELECT
+        nconst,
+        JSONB_AGG(
+            JSONB_BUILD_OBJECT(
+                'category', category,
+                'title_count', title_count
+            )
+            ORDER BY title_count DESC, category
+        ) AS top_categories
+    FROM category_ranked
+    WHERE rn <= 3
+    GROUP BY nconst
+)
+
+SELECT
+    b.person_id,
+    b.name,
+    b.birth_year,
+    ts.career_start_year,
+    b.image_url,
+    b.nepo_score,
+    b.parent_count,
+    b.grandparent_count,
+    b.relative_count,
+    COALESCE(ts.total_titles, 0) AS total_titles,
+    ts.avg_rating,
+    ca.top_categories
+FROM base_top_100 b
+LEFT JOIN title_stats ts
+    ON ts.nconst = b.nconst
+LEFT JOIN category_agg ca
+    ON ca.nconst = b.nconst
+ORDER BY
+    b.nepo_score DESC,
+    COALESCE(ts.total_titles, 0) DESC,
+    b.person_id;
   `, (err, data) => {
     if (err) {
       console.log(err);
