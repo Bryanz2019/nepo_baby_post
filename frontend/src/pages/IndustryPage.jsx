@@ -1,9 +1,16 @@
 import { useState, useEffect, useMemo } from "react";
 
 import {
-  LineChart, Line,
-  BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
 } from "recharts";
 import LeftPanel from "../components/LeftPanel";
 
@@ -14,6 +21,14 @@ const EXCLUDED_PROFESSIONS = [
   "archive_footage",
   "archive_sound",
   "casting_director",
+];
+
+const METRIC_OPTIONS = [
+  { key: "role_count", label: "Role Count" },
+  { key: "movie_count", label: "Movie Count" },
+  { key: "avg_credit_order", label: "Avg Credit Order" },
+  { key: "avg_rating", label: "Avg Rating" },
+  { key: "avg_votes", label: "Avg Votes" },
 ];
 
 function formatYAxis(v) {
@@ -36,7 +51,21 @@ function median(arr) {
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 
-function CustomTooltip({ active, payload, label }) {
+function formatMetricValue(metricKey, value) {
+  if (value == null) return "0";
+
+  if (metricKey === "avg_rating" || metricKey === "avg_credit_order") {
+    return Number(value).toFixed(2);
+  }
+
+  if (metricKey === "avg_votes" || metricKey === "role_count" || metricKey === "movie_count") {
+    return formatYAxis(Number(value));
+  }
+
+  return value;
+}
+
+function CustomTooltip({ active, payload, label, metricKey }) {
   if (!active || !payload?.length) return null;
 
   return (
@@ -48,7 +77,10 @@ function CustomTooltip({ active, payload, label }) {
           className="body-medium text-[14px]"
           style={{ color: entry.color }}
         >
-          {entry.name}: {typeof entry.value === "number" ? formatYAxis(entry.value) : entry.value}
+          {entry.name}:{" "}
+          {typeof entry.value === "number"
+            ? formatMetricValue(metricKey, entry.value)
+            : entry.value}
         </div>
       ))}
     </div>
@@ -63,6 +95,7 @@ export default function IndustryPage() {
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState([]);
   const [participationData, setParticipationData] = useState([]);
+  const [selectedMetric, setSelectedMetric] = useState("avg_votes");
 
   useEffect(() => {
     const fetchMetrics = async () => {
@@ -98,7 +131,6 @@ export default function IndustryPage() {
     return metrics.filter(
       (r) =>
         r?.year != null &&
-        r?.avg_votes != null &&
         !EXCLUDED_PROFESSIONS.includes(String(r.profession || "").toLowerCase())
     );
   }, [metrics]);
@@ -130,40 +162,47 @@ export default function IndustryPage() {
     return Object.values(matrix).sort((a, b) => a.order - b.order);
   }, [participationData]);
 
+  // CHART 2: switchable metric by profession
   const chart2Data = useMemo(() => {
     const map = {};
 
     cleanRows.forEach((r) => {
       const profession = String(r.profession || "").toLowerCase();
-      const avgVotes = Number(r.avg_votes) || 0;
       const isNepo = String(r.nepo_status) === "Nepo Baby";
+      const value = Number(r[selectedMetric]) || 0;
 
       if (!map[profession]) {
         map[profession] = {
           profession: formatProfessionLabel(profession),
-          nepoVotes: [],
-          nonNepoVotes: [],
+          nepoValues: [],
+          nonNepoValues: [],
+          totalWeight: 0,
         };
       }
 
       if (isNepo) {
-        map[profession].nepoVotes.push(avgVotes);
+        map[profession].nepoValues.push(value);
       } else {
-        map[profession].nonNepoVotes.push(avgVotes);
+        map[profession].nonNepoValues.push(value);
       }
+
+      map[profession].totalWeight += 1;
     });
 
     return Object.values(map)
       .map((d) => ({
         profession: d.profession,
-        "G1 Nepo": +median(d.nepoVotes).toFixed(1),
-        "G2 Non-Nepo": +median(d.nonNepoVotes).toFixed(1),
-        totalWeight: d.nepoVotes.length + d.nonNepoVotes.length,
+        "G1 Nepo": +median(d.nepoValues).toFixed(2),
+        "G2 Non-Nepo": +median(d.nonNepoValues).toFixed(2),
+        totalWeight: d.totalWeight,
       }))
       .filter((d) => d["G1 Nepo"] > 0 || d["G2 Non-Nepo"] > 0)
       .sort((a, b) => b.totalWeight - a.totalWeight)
       .slice(0, 10);
-  }, [cleanRows]);
+  }, [cleanRows, selectedMetric]);
+
+  const selectedMetricLabel =
+    METRIC_OPTIONS.find((m) => m.key === selectedMetric)?.label || "Metric";
 
   return (
     <div className="flex w-full h-full bg-panel">
@@ -193,7 +232,7 @@ export default function IndustryPage() {
             </p>
             <p className="mb-3">
               <span className="text-red">Chart 2.</span> Compares professions using
-              median movie votes for G1 Nepo and G2 Non-Nepo. Self, archive
+              a switchable metric across G1 Nepo and G2 Non-Nepo. Self, archive
               footage, archive sound, and casting director are excluded.
             </p>
           </div>
@@ -209,7 +248,7 @@ export default function IndustryPage() {
           </div>
           <div className="head-big text-ink">Compare Career Patterns Across the Industry</div>
           <div className="subheader-medium text-print mt-1">
-            Nepo participation by year and median-vote profile by profession
+            Nepo participation by year and profession-level metric switcher
           </div>
         </div>
 
@@ -260,14 +299,12 @@ export default function IndustryPage() {
                       width={40}
                     />
 
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip content={<CustomTooltip metricKey="movie_count" />} />
 
                     <Legend
                       wrapperStyle={{ fontSize: "12px" }}
                       formatter={(value) => (
-                        <span className="label-tiny text-print">
-                          {value}
-                        </span>
+                        <span className="label-tiny text-print">{value}</span>
                       )}
                     />
 
@@ -298,11 +335,32 @@ export default function IndustryPage() {
             <div className="flex flex-col gap-2 mb-4">
               <SectionLabel>Chart 2</SectionLabel>
               <div className="head-medium text-ink text-[22px]">
-                Median Votes by Profession
+                Profession Comparison by {selectedMetricLabel}
               </div>
               <div className="subheader-medium text-print">
-                Uses movie median votes, grouped into G1 Nepo and G2 Non-Nepo
+                Switch between profession-level metrics for G1 Nepo and G2 Non-Nepo
               </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 mb-4">
+              {METRIC_OPTIONS.map((option) => {
+                const active = selectedMetric === option.key;
+
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => setSelectedMetric(option.key)}
+                    className={`px-3 py-2 border-[2px] text-[12px] uppercase tracking-wide transition-colors ${
+                      active
+                        ? "bg-red text-white border-red"
+                        : "bg-paper text-ink border-ink hover:bg-panel"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="w-full h-[360px]">
@@ -333,13 +391,13 @@ export default function IndustryPage() {
                       height={70}
                     />
                     <YAxis
-                      tickFormatter={formatYAxis}
+                      tickFormatter={(v) => formatMetricValue(selectedMetric, v)}
                       tick={{ fill: "var(--color-print)", fontSize: 11 }}
                       tickLine={false}
                       axisLine={false}
-                      width={40}
+                      width={50}
                     />
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip content={<CustomTooltip metricKey={selectedMetric} />} />
                     <Legend
                       wrapperStyle={{ fontSize: "12px" }}
                       formatter={(value) => (
