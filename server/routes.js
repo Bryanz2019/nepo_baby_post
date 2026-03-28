@@ -431,172 +431,206 @@ LIMIT 100;
 const getPersonProfile = async function(req, res) {
   connection.query(`
 WITH base_person AS (
-   SELECT
-       p.person_id,
-       p.nconst,
-       p.name,
-       p.birthdate,
-       COALESCE(
-               p.image_url,
-               'https://static.wikia.nocookie.net/pbskidsgo/images/5/57/Curious-George.jpg/revision/latest/scale-to-width-down/250?cb=20120712224008'
-       ) AS image_url
-   FROM core.person p
-   WHERE p.person_id = '${req.params.person_id}'
+    SELECT
+        p.person_id,
+        p.nconst,
+        p.name,
+        p.birthdate,
+        COALESCE(
+                p.image_url,
+                'https://static.wikia.nocookie.net/pbskidsgo/images/5/57/Curious-George.jpg/revision/latest/scale-to-width-down/250?cb=20120712224008'
+        ) AS image_url
+    FROM core.person p
+    WHERE p.person_id = '${req.params.person_id}'
 ),
 
+     profession_counts AS (
+         SELECT
+             pr.nconst,
+             pr.category,
+             COUNT(*) AS category_count
+         FROM core.principal pr
+                  JOIN base_person bp USING (nconst)
+         WHERE pr.category NOT IN ('self', 'archive_footage', 'archive_sound')
+         GROUP BY pr.nconst, pr.category
+     ),
 
-    profession_counts AS (
-        SELECT
-            pr.nconst,
-            pr.category,
-            COUNT(*) AS category_count
-        FROM core.principal pr
-                 JOIN base_person bp USING (nconst)
-        WHERE pr.category NOT IN ('self', 'archive_footage', 'archive_sound')
-        GROUP BY pr.nconst, pr.category
-    ),
+     profession_agg AS (
+         SELECT
+             nconst,
+             STRING_AGG(category, ', ' ORDER BY category_count DESC, category) AS professions
+         FROM profession_counts
+         GROUP BY nconst
+     ),
 
-
-    profession_agg AS (
-        SELECT
-            nconst,
-            STRING_AGG(category, ', ' ORDER BY category_count DESC, category) AS professions
-        FROM profession_counts
-        GROUP BY nconst
-    ),
-
-
-    kinship_summary AS (
-        SELECT
-            COUNT(DISTINCT CASE WHEN k.kinship = 'PARENT'
-                                    THEN k.related_person_id END)                                         AS parent_count,
-            COUNT(DISTINCT CASE WHEN k.kinship = 'GRANDPARENT'
-                                    THEN k.related_person_id END)                                         AS grandparent_count,
-            COUNT(DISTINCT CASE WHEN k.kinship NOT IN (
+     kinship_summary AS (
+         SELECT
+             COUNT(DISTINCT CASE
+                                WHEN k.kinship = 'PARENT' THEN k.related_person_id
+                 END) AS parent_count,
+             COUNT(DISTINCT CASE
+                                WHEN k.kinship = 'GRANDPARENT' THEN k.related_person_id
+                 END) AS grandparent_count,
+             COUNT(DISTINCT CASE
+                                WHEN k.kinship NOT IN (
                                                        'PARENT', 'GRANDPARENT',
                                                        'SPOUSE', 'UNKNOWN', 'RELATIVE'
-                )
-                AND k.kinship NOT LIKE '%INLAW%'
-                AND k.kinship NOT LIKE 'STEP%'
-                                    THEN k.related_person_id END)                                         AS relative_count
-        FROM core.kinship k
-                 JOIN base_person bp USING (person_id)
-    ),
+                                    )
+                                    AND k.kinship NOT LIKE '%INLAW%'
+                                    AND k.kinship NOT LIKE 'STEP%'
+                                    THEN k.related_person_id
+                 END) AS relative_count
+         FROM core.kinship k
+                  JOIN base_person bp USING (person_id)
+     ),
 
+     all_titles AS (
+         SELECT DISTINCT
+             pr.tconst
+         FROM core.principal pr
+                  JOIN base_person bp USING (nconst)
+     ),
 
-    career_summary AS (
-        SELECT
-            COUNT(DISTINCT pr.tconst)                                               AS total_titles,
-            COUNT(DISTINCT CASE WHEN pr.category = 'actor'    THEN pr.tconst END)  AS acting_titles,
-            COUNT(DISTINCT CASE WHEN pr.category = 'director' THEN pr.tconst END)  AS directing_titles,
-            MIN(t.start_year)                                                        AS career_start_year,
-            MAX(t.start_year)                                                        AS latest_title_year,
-            AVG(rt.average_rating)::NUMERIC(10, 2)                                  AS avg_rating,
-            SUM(rt.num_votes)                                                        AS total_votes,
-            (
-                SELECT JSONB_AGG(cat_counts ORDER BY title_count DESC)
-                FROM (
-                         SELECT
-                             pr2.category,
-                             COUNT(DISTINCT pr2.tconst) AS title_count
-                         FROM core.principal pr2
-                                  JOIN base_person bp2 USING (nconst)
-                         WHERE pr2.category NOT IN ('self', 'archive_footage','archive_sound')
-                         GROUP BY pr2.category
-                         ORDER BY title_count DESC
-                         LIMIT 3
-                     ) cat_counts
-            ) AS top_categories
-        FROM core.principal pr
-                 JOIN base_person bp      USING (nconst)
-                 LEFT JOIN core.title t   ON t.tconst  = pr.tconst
-                 LEFT JOIN core.rating rt ON rt.tconst = pr.tconst
-        WHERE pr.category != 'self'
-    ),
+     credited_titles AS (
+         SELECT
+             pr.tconst,
+             MAX(CASE WHEN pr.category = 'actor' THEN 1 ELSE 0 END) AS is_actor,
+             MAX(CASE WHEN pr.category = 'director' THEN 1 ELSE 0 END) AS is_director,
+             STRING_AGG(DISTINCT pr.category, ', ' ORDER BY pr.category) AS categories
+         FROM core.principal pr
+                  JOIN base_person bp USING (nconst)
+         WHERE pr.category NOT IN ('self', 'archive_footage', 'archive_sound')
+         GROUP BY pr.tconst
+     ),
 
+     career_summary AS (
+         SELECT
+             (SELECT COUNT(*) FROM all_titles) AS total_titles,
+             COUNT(*) FILTER (WHERE ct.is_actor = 1) AS acting_titles,
+             COUNT(*) FILTER (WHERE ct.is_director = 1) AS directing_titles,
+             MIN(t.start_year) AS career_start_year,
+             MAX(t.start_year) AS latest_title_year,
+             AVG(rt.average_rating)::NUMERIC(10, 2) AS avg_rating,
+             (
+                 SELECT SUM(COALESCE(rt2.num_votes, 0))
+                 FROM all_titles at2
+                          LEFT JOIN core.rating rt2
+                                    ON rt2.tconst = at2.tconst
+             ) AS total_votes,
+             (
+                 SELECT JSONB_AGG(cat_counts ORDER BY title_count DESC, category)
+                 FROM (
+                          SELECT
+                              pr2.category,
+                              COUNT(DISTINCT pr2.tconst) AS title_count
+                          FROM core.principal pr2
+                                   JOIN base_person bp2 USING (nconst)
+                          WHERE pr2.category NOT IN ('self', 'archive_footage', 'archive_sound')
+                          GROUP BY pr2.category
+                          ORDER BY title_count DESC, pr2.category
+                          LIMIT 3
+                      ) cat_counts
+             ) AS top_categories
+         FROM credited_titles ct
+                  LEFT JOIN core.title t
+                            ON t.tconst = ct.tconst
+                  LEFT JOIN core.rating rt
+                            ON rt.tconst = ct.tconst
+     ),
 
-    top_titles AS (
-        SELECT distinct
-            t.tconst,
-            t.primary_title,
-            t.title_type,
-            t.start_year,
-            pr.category,
-            rt.average_rating,
-            rt.num_votes
-        FROM core.principal pr
-                 JOIN base_person bp       USING (nconst)
-                 JOIN core.title t         ON t.tconst  = pr.tconst
-                 LEFT JOIN core.rating rt  ON rt.tconst = t.tconst
-        ORDER BY
-            rt.average_rating DESC NULLS LAST,
-            rt.num_votes      DESC NULLS LAST,
-            t.start_year      DESC NULLS LAST
-        LIMIT 20
-    )
-
+     top_titles AS (
+         SELECT
+             t.tconst,
+             t.primary_title,
+             t.title_type,
+             t.start_year,
+             STRING_AGG(DISTINCT pr.category, ', ' ORDER BY pr.category) AS category,
+             rt.average_rating,
+             rt.num_votes
+         FROM core.principal pr
+                  JOIN base_person bp
+                       ON bp.nconst = pr.nconst
+                  JOIN core.title t
+                       ON t.tconst = pr.tconst
+                  LEFT JOIN core.rating rt
+                            ON rt.tconst = t.tconst
+         GROUP BY
+             t.tconst,
+             t.primary_title,
+             t.title_type,
+             t.start_year,
+             rt.average_rating,
+             rt.num_votes
+         ORDER BY
+             rt.num_votes DESC NULLS LAST,
+             t.start_year DESC NULLS LAST,
+             t.tconst
+         LIMIT 20
+     )
 
 SELECT
-   bp.person_id,
-   bp.name                               AS primary_name,
-   EXTRACT(YEAR FROM bp.birthdate)::INT  AS birth_year,
-   pa.professions,
-   ns.nepo_score,
-   ks.parent_count,
-   ks.grandparent_count,
-   ks.relative_count,
-   bp.image_url,
-   cs.total_titles,
-   cs.acting_titles,
-   cs.directing_titles,
-   cs.career_start_year,
-   cs.latest_title_year,
-   cs.avg_rating,
-   cs.total_votes,
-   cs.top_categories,
-   JSONB_AGG(
-           JSONB_BUILD_OBJECT(
-                   'tconst',         tt.tconst,
-                   'primary_title',  tt.primary_title,
-                   'title_type',     tt.title_type,
-                   'start_year',     tt.start_year,
-                   'category',       tt.category,
-                   'average_rating', tt.average_rating,
-                   'num_votes',      tt.num_votes
-           )
-           ORDER BY
-               tt.average_rating DESC NULLS LAST,
-               tt.num_votes      DESC NULLS LAST,
-               tt.start_year     DESC NULLS LAST
-   ) AS top_titles
-
-
+    bp.person_id,
+    bp.name AS primary_name,
+    EXTRACT(YEAR FROM bp.birthdate)::INT AS birth_year,
+    pa.professions,
+    ns.nepo_score,
+    ks.parent_count,
+    ks.grandparent_count,
+    ks.relative_count,
+    bp.image_url,
+    cs.total_titles,
+    cs.acting_titles,
+    cs.directing_titles,
+    cs.career_start_year,
+    cs.latest_title_year,
+    cs.avg_rating,
+    cs.total_votes,
+    cs.top_categories,
+    COALESCE(
+                    JSONB_AGG(
+                    JSONB_BUILD_OBJECT(
+                            'tconst',         tt.tconst,
+                            'primary_title',  tt.primary_title,
+                            'title_type',     tt.title_type,
+                            'start_year',     tt.start_year,
+                            'category',       tt.category,
+                            'average_rating', tt.average_rating,
+                            'num_votes',      tt.num_votes
+                    )
+                    ORDER BY
+                        tt.num_votes DESC NULLS LAST,
+                        tt.start_year DESC NULLS LAST,
+                        tt.tconst
+                             ) FILTER (WHERE tt.tconst IS NOT NULL),
+                    '[]'::jsonb
+    ) AS top_titles
 FROM base_person bp
-        CROSS JOIN kinship_summary ks
-        CROSS JOIN career_summary cs
-        CROSS JOIN top_titles tt
-        LEFT JOIN profession_agg  pa ON pa.nconst    = bp.nconst
-        LEFT JOIN core.neposcore  ns ON ns.person_id = bp.person_id
-
-
+         CROSS JOIN kinship_summary ks
+         CROSS JOIN career_summary cs
+         LEFT JOIN top_titles tt
+                   ON TRUE
+         LEFT JOIN profession_agg pa
+                   ON pa.nconst = bp.nconst
+         LEFT JOIN core.neposcore ns
+                   ON ns.person_id = bp.person_id
 GROUP BY
-   bp.person_id,
-   bp.name,
-   bp.birthdate,
-   bp.image_url,
-   pa.professions,
-   ns.nepo_score,
-   ks.parent_count,
-   ks.grandparent_count,
-   ks.relative_count,
-   cs.total_titles,
-   cs.acting_titles,
-   cs.directing_titles,
-   cs.career_start_year,
-   cs.latest_title_year,
-   cs.avg_rating,
-   cs.total_votes,
-   cs.top_categories;
+    bp.person_id,
+    bp.name,
+    bp.birthdate,
+    bp.image_url,
+    pa.professions,
+    ns.nepo_score,
+    ks.parent_count,
+    ks.grandparent_count,
+    ks.relative_count,
+    cs.total_titles,
+    cs.acting_titles,
+    cs.directing_titles,
+    cs.career_start_year,
+    cs.latest_title_year,
+    cs.avg_rating,
+    cs.total_votes,
+    cs.top_categories;
   `, (err, data) => {
     if (err) {
       console.log(err);
@@ -610,9 +644,25 @@ GROUP BY
 // PLACEHOLDER   Route 7: GET /person/:person_id/family 
 const getPersonFamliy = async function(req, res) {
   connection.query(`
-    SELECT *
-    FROM core.person
-    LIMIT 10
+    SELECT
+      k.person_id,
+      p1.name AS person_name,
+      ns1.nepo_score AS person_nepo_score,
+      k.related_person_id,
+      p2.name AS related_person_name,
+      ns2.nepo_score AS related_person_nepo_score,
+      COALESCE(
+        p2.image_url,
+        'https://static.wikia.nocookie.net/pbskidsgo/images/5/57/Curious-George.jpg/revision/latest/scale-to-width-down/250?cb=20120712224008'
+      ) AS related_person_image_url,
+      k.kinship
+    FROM core.kinship k
+      JOIN core.person p1 ON k.person_id = p1.person_id
+      JOIN core.person p2 ON k.related_person_id = p2.person_id
+      JOIN core.neposcore ns1 ON k.person_id = ns1.person_id
+      JOIN core.neposcore ns2 ON k.related_person_id = ns2.person_id
+    WHERE k.person_id = '${req.params.person_id}'
+    ORDER BY k.degree ASC, k.gen_delta DESC;
   `, (err, data) => {
     if (err) {
       console.log(err);
@@ -626,9 +676,27 @@ const getPersonFamliy = async function(req, res) {
 // PLACEHOLDER     Route 8: GET /person/:person_id/collaborators
 const getPersonCollaborators = async function(req, res) {
   connection.query(`
-    SELECT *
-    FROM core.person
-    LIMIT 10
+    SELECT
+      pe1.person_id AS person_id,
+      pe1.name AS person_name,
+      pe2.person_id AS colleague_id,
+      pe2.name AS colleague_name,
+      COALESCE(
+        pe2.image_url,
+        'https://static.wikia.nocookie.net/pbskidsgo/images/5/57/Curious-George.jpg/revision/latest/scale-to-width-down/250?cb=20120712224008'
+      ) AS colleague_image_url,
+      COUNT(DISTINCT p1.tconst) AS total_collaborations
+    FROM core.principal p1
+      JOIN core.principal p2 ON p1.tconst = p2.tconst
+      JOIN core.person pe1 ON pe1.nconst = p1.nconst
+      JOIN core.person pe2 ON pe2.nconst = p2.nconst
+    WHERE pe1.person_id = '${req.params.person_id}'
+      AND pe2.person_id != '${req.params.person_id}'
+      AND p2.category IN ('actor', 'actress')
+    GROUP BY pe1.person_id, pe1.name, pe2.person_id, pe2.name
+    HAVING COUNT(p1.tconst) >= 2
+    ORDER BY total_collaborations DESC, colleague_name ASC
+    LIMIT 10;
   `, (err, data) => {
     if (err) {
       console.log(err);

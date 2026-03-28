@@ -9,6 +9,7 @@ import Demo from './pages/Demo';
 import Person from "./pages/Person";
 import QuickFacts from "./pages/QuickFacts";
 import CareerDossier from "./pages/CareerDossier";
+import FamilyTree from "./pages/FamilyTree";
 
 function App() {
   return (
@@ -25,7 +26,8 @@ function App() {
             <Route path='/demo' element={<Demo />} />
             <Route path='/person/:id' element={<Person />} >
               <Route index element={<QuickFacts />} />
-              <Route path="career_dossier" element={<CareerDossier />} />
+              <Route path='career_dossier' element={<CareerDossier />} />
+              <Route path='family_tree' element={<FamilyTree />} />
             </Route>
             <Route path='*' element={<div className='text-center py-10 text-8xl text-red-400'>404 Not Found</div>} />
           </Routes>
