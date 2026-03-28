@@ -962,20 +962,34 @@ INSERT INTO core.mapkinship (relationship, kinship) VALUES
 -- ============================================================
 -- STEP 1: parent edges
 -- ============================================================
+-------------------- {core.kinship } ---------------------
+-- OWNER: Emma
+-- SOURCE: core.relationship
+-- DEPENDS ON: core.mapkinship
+-- ============================================================
+-- core.kinship v3 — Vector-based kinship inference
+-- Fixed:
+--   1) stepparent vs stepsibling encoding collision
+--   2) stepsibling inference excludes biological siblings
+--   3) explicit step relationships remain as overrides
+-- ============================================================
+
+
+-- ============================================================
+-- STEP 1: parent edges
+-- ============================================================
 DROP TABLE IF EXISTS tmp_parent_edges;
 CREATE TEMP TABLE tmp_parent_edges AS
 SELECT
-   r.person_id,
-   r.related_person_id AS parent_id
+    r.person_id,
+    r.related_person_id AS parent_id
 FROM core.relationship r
-JOIN core.mapkinship mk ON r.relationship = mk.relationship
+         JOIN core.mapkinship mk
+              ON r.relationship = mk.relationship
 WHERE mk.kinship = 'PARENT';
 
-
-CREATE INDEX idx_v2_pe_person ON tmp_parent_edges (person_id);
-CREATE INDEX idx_v2_pe_parent ON tmp_parent_edges (parent_id);
-
-
+CREATE INDEX idx_v3_pe_person ON tmp_parent_edges (person_id);
+CREATE INDEX idx_v3_pe_parent ON tmp_parent_edges (parent_id);
 
 
 -- ============================================================
@@ -985,26 +999,32 @@ CREATE INDEX idx_v2_pe_parent ON tmp_parent_edges (parent_id);
 DROP TABLE IF EXISTS tmp_up_chain;
 CREATE TEMP TABLE tmp_up_chain AS
 WITH RECURSIVE up_cte AS (
-   SELECT person_id, parent_id AS ancestor_id, 1 AS up_steps
-   FROM tmp_parent_edges
+    SELECT
+        person_id,
+        parent_id AS ancestor_id,
+        1 AS up_steps
+    FROM tmp_parent_edges
 
+    UNION ALL
 
-   UNION ALL
-
-
-   SELECT u.person_id, pe.parent_id AS ancestor_id, u.up_steps + 1
-   FROM up_cte u
-   JOIN tmp_parent_edges pe ON pe.person_id = u.ancestor_id
-   WHERE u.up_steps < 5
+    SELECT
+        u.person_id,
+        pe.parent_id AS ancestor_id,
+        u.up_steps + 1
+    FROM up_cte u
+             JOIN tmp_parent_edges pe
+                  ON pe.person_id = u.ancestor_id
+    WHERE u.up_steps < 5
 )
-SELECT DISTINCT person_id, ancestor_id, up_steps FROM up_cte;
+SELECT DISTINCT
+    person_id,
+    ancestor_id,
+    up_steps
+FROM up_cte;
 
-
-CREATE INDEX idx_v2_uc_person   ON tmp_up_chain (person_id);
-CREATE INDEX idx_v2_uc_ancestor ON tmp_up_chain (ancestor_id);
-CREATE INDEX idx_v2_uc_steps    ON tmp_up_chain (up_steps);
-
-
+CREATE INDEX idx_v3_uc_person   ON tmp_up_chain (person_id);
+CREATE INDEX idx_v3_uc_ancestor ON tmp_up_chain (ancestor_id);
+CREATE INDEX idx_v3_uc_steps    ON tmp_up_chain (up_steps);
 
 
 -- ============================================================
@@ -1012,38 +1032,32 @@ CREATE INDEX idx_v2_uc_steps    ON tmp_up_chain (up_steps);
 -- Two people are lateral (sibling) if they:
 --   (a) share at least one direct parent in tmp_parent_edges, OR
 --   (b) have an explicit sibling relationship in core.relationship
---       (covers cases where shared parents aren't in the DB)
 -- ============================================================
 DROP TABLE IF EXISTS tmp_lateral_edges;
 CREATE TEMP TABLE tmp_lateral_edges AS
 
-
 -- (a) structurally inferred: share a parent
 SELECT DISTINCT
-   p1.person_id    AS person_id,
-   p2.person_id    AS lateral_id
+    p1.person_id AS person_id,
+    p2.person_id AS lateral_id
 FROM tmp_parent_edges p1
-JOIN tmp_parent_edges p2
-   ON p1.parent_id  = p2.parent_id
-   AND p1.person_id <> p2.person_id
-
+         JOIN tmp_parent_edges p2
+              ON p1.parent_id = p2.parent_id
+                  AND p1.person_id <> p2.person_id
 
 UNION
 
-
 -- (b) explicit sibling from core.relationship
 SELECT DISTINCT
-   r.person_id,
-   r.related_person_id AS lateral_id
+    r.person_id,
+    r.related_person_id AS lateral_id
 FROM core.relationship r
-JOIN core.mapkinship mk ON r.relationship = mk.relationship
+         JOIN core.mapkinship mk
+              ON r.relationship = mk.relationship
 WHERE mk.kinship = 'SIBLING';
 
-
-CREATE INDEX idx_v2_le_person  ON tmp_lateral_edges (person_id);
-CREATE INDEX idx_v2_le_lateral ON tmp_lateral_edges (lateral_id);
-
-
+CREATE INDEX idx_v3_le_person  ON tmp_lateral_edges (person_id);
+CREATE INDEX idx_v3_le_lateral ON tmp_lateral_edges (lateral_id);
 
 
 -- ============================================================
@@ -1054,23 +1068,26 @@ CREATE INDEX idx_v2_le_lateral ON tmp_lateral_edges (lateral_id);
 DROP TABLE IF EXISTS tmp_spouse_edges;
 CREATE TEMP TABLE tmp_spouse_edges AS
 SELECT DISTINCT
-   r.person_id,
-   r.related_person_id AS spouse_id
+    r.person_id,
+    r.related_person_id AS spouse_id
 FROM core.relationship r
-JOIN core.mapkinship mk ON r.relationship = mk.relationship
+         JOIN core.mapkinship mk
+              ON r.relationship = mk.relationship
 WHERE mk.kinship = 'SPOUSE';
 
-
--- make it bidirectional
+-- make it bidirectional safely
 INSERT INTO tmp_spouse_edges (person_id, spouse_id)
-SELECT spouse_id, person_id FROM tmp_spouse_edges
-ON CONFLICT DO NOTHING;
+SELECT s.spouse_id, s.person_id
+FROM tmp_spouse_edges s
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM tmp_spouse_edges x
+    WHERE x.person_id = s.spouse_id
+      AND x.spouse_id = s.person_id
+);
 
-
-CREATE INDEX idx_v2_sp_person ON tmp_spouse_edges (person_id);
-CREATE INDEX idx_v2_sp_spouse ON tmp_spouse_edges (spouse_id);
-
-
+CREATE INDEX idx_v3_sp_person ON tmp_spouse_edges (person_id);
+CREATE INDEX idx_v3_sp_spouse ON tmp_spouse_edges (spouse_id);
 
 
 -- ============================================================
@@ -1083,223 +1100,210 @@ CREATE INDEX idx_v2_sp_spouse ON tmp_spouse_edges (spouse_id);
 --   degree    = lat_steps
 --   lca_gen   = up_steps
 --
--- We enumerate all valid combinations:
---   A. Pure vertical:     lat=0, down = 0..up
---   B. Up + lateral:      up=1..5, lat=1..3, down = 0..up+lat
+-- Special encoding for step relationships:
+--   degree = 10 => step direct line
+--   degree = 11 => stepsibling
 -- ============================================================
 DROP TABLE IF EXISTS tmp_kinship_vectors;
 CREATE TEMP TABLE tmp_kinship_vectors AS
 
-
 -- ── A1. Direct ancestors (up only, no lateral, no down) ──────────────────
 SELECT
-   uc.person_id,
-   uc.ancestor_id          AS related_person_id,
-   uc.up_steps - 0         AS gen_delta,
-   0                       AS degree,
-   uc.up_steps             AS lca_gen
+    uc.person_id,
+    uc.ancestor_id          AS related_person_id,
+    uc.up_steps             AS gen_delta,
+    0                       AS degree,
+    uc.up_steps             AS lca_gen
 FROM tmp_up_chain uc
 
-
 UNION ALL
-
 
 -- ── A2. Direct descendants (reverse of ancestors) ────────────────────────
 SELECT
-   uc.ancestor_id          AS person_id,
-   uc.person_id            AS related_person_id,
-   0 - uc.up_steps         AS gen_delta,
-   0                       AS degree,
-   0                       AS lca_gen
+    uc.ancestor_id          AS person_id,
+    uc.person_id            AS related_person_id,
+    0 - uc.up_steps         AS gen_delta,
+    0                       AS degree,
+    0                       AS lca_gen
 FROM tmp_up_chain uc
-
 
 UNION ALL
 
-
--- ── B1. Same-gen lateral: siblings (up=1, lat=1, down=1) ─────────────────
--- person → up 1 → lateral → down 1 → related
+-- ── B1. Same-gen lateral: siblings ───────────────────────────────────────
 SELECT
-   le.person_id,
-   le.lateral_id           AS related_person_id,
-   0                       AS gen_delta,    -- up=1, down=1
-   1                       AS degree,
-   1                       AS lca_gen
+    le.person_id,
+    le.lateral_id           AS related_person_id,
+    0                       AS gen_delta,
+    1                       AS degree,
+    1                       AS lca_gen
 FROM tmp_lateral_edges le
 
-
 UNION ALL
 
-
--- ── B2a. Up + lateral + down via up_chain ───────────────────────────────
--- person goes up u steps, lateral 1 step, then down d steps
--- Both endpoints reachable via tmp_up_chain (cousins, etc.)
+-- ── B2a. Up + lateral + down via up_chain ────────────────────────────────
 SELECT DISTINCT
-   uc1.person_id                  AS person_id,
-   uc2.person_id                  AS related_person_id,
-   (uc1.up_steps - uc2.up_steps)  AS gen_delta,
-   1                              AS degree,
-   uc1.up_steps                   AS lca_gen
+    uc1.person_id                  AS person_id,
+    uc2.person_id                  AS related_person_id,
+    (uc1.up_steps - uc2.up_steps)  AS gen_delta,
+    1                              AS degree,
+    uc1.up_steps                   AS lca_gen
 FROM tmp_up_chain uc1
-JOIN tmp_lateral_edges le ON le.person_id   = uc1.ancestor_id
-JOIN tmp_up_chain uc2     ON uc2.ancestor_id = le.lateral_id
+         JOIN tmp_lateral_edges le
+              ON le.person_id = uc1.ancestor_id
+         JOIN tmp_up_chain uc2
+              ON uc2.ancestor_id = le.lateral_id
 WHERE uc1.person_id <> uc2.person_id
- AND uc1.up_steps <= 4
- AND uc2.up_steps <= 4
-
+  AND uc1.up_steps <= 4
+  AND uc2.up_steps <= 4
 
 UNION ALL
 
-
--- ── B2b. Up + lateral (no down): aunt/uncle with no parent data ───────────
--- person goes up u steps to an ancestor, then lateral to a sibling
--- of that ancestor — the sibling IS the related person (down=0).
--- gen_delta = up_steps (went up u, came down 0), degree = 1
+-- ── B2b. Up + lateral (no down): aunt/uncle with no parent data ──────────
 SELECT DISTINCT
-   uc.person_id                   AS person_id,
-   le.lateral_id                  AS related_person_id,
-   uc.up_steps                    AS gen_delta,   -- up=u, down=0
-   1                              AS degree,
-   uc.up_steps                    AS lca_gen
+    uc.person_id                   AS person_id,
+    le.lateral_id                  AS related_person_id,
+    uc.up_steps                    AS gen_delta,
+    1                              AS degree,
+    uc.up_steps                    AS lca_gen
 FROM tmp_up_chain uc
-JOIN tmp_lateral_edges le ON le.person_id = uc.ancestor_id
+         JOIN tmp_lateral_edges le
+              ON le.person_id = uc.ancestor_id
 WHERE uc.person_id <> le.lateral_id
- AND uc.up_steps <= 4
-
+  AND uc.up_steps <= 4
 
 UNION ALL
 
-
--- ── B2b reverse. Lateral's child → person (NIECE_NEPHEW with no parent data)
--- Bentley→Grace: lateral_id's descendant sees person as niece/nephew target
--- gen_delta = -up_steps (went up 0, effectively down u), degree = 1
+-- ── B2b reverse. Niece/nephew with no parent data ────────────────────────
 SELECT DISTINCT
-   le.lateral_id                  AS person_id,
-   uc.person_id                   AS related_person_id,
-   0 - uc.up_steps                AS gen_delta,   -- down=u, up=0
-   1                              AS degree,
-   uc.up_steps                    AS lca_gen
+    le.lateral_id                  AS person_id,
+    uc.person_id                   AS related_person_id,
+    0 - uc.up_steps                AS gen_delta,
+    1                              AS degree,
+    uc.up_steps                    AS lca_gen
 FROM tmp_up_chain uc
-JOIN tmp_lateral_edges le ON le.person_id = uc.ancestor_id
+         JOIN tmp_lateral_edges le
+              ON le.person_id = uc.ancestor_id
 WHERE uc.person_id <> le.lateral_id
- AND uc.up_steps <= 4
-
+  AND uc.up_steps <= 4
 
 UNION ALL
 
-
--- ── B3a. Two lateral hops + down via up_chain (2nd cousins) ─────────────
+-- ── B3a. Two lateral hops + down via up_chain (2nd cousins) ──────────────
 SELECT DISTINCT
-   uc1.person_id                  AS person_id,
-   uc2.person_id                  AS related_person_id,
-   (uc1.up_steps - uc2.up_steps)  AS gen_delta,
-   2                              AS degree,
-   uc1.up_steps                   AS lca_gen
+    uc1.person_id                  AS person_id,
+    uc2.person_id                  AS related_person_id,
+    (uc1.up_steps - uc2.up_steps)  AS gen_delta,
+    2                              AS degree,
+    uc1.up_steps                   AS lca_gen
 FROM tmp_up_chain uc1
-JOIN tmp_lateral_edges le1 ON le1.person_id   = uc1.ancestor_id
-JOIN tmp_lateral_edges le2 ON le2.person_id   = le1.lateral_id
-                          AND le2.lateral_id <> uc1.ancestor_id
-JOIN tmp_up_chain uc2      ON uc2.ancestor_id = le2.lateral_id
+         JOIN tmp_lateral_edges le1
+              ON le1.person_id = uc1.ancestor_id
+         JOIN tmp_lateral_edges le2
+              ON le2.person_id = le1.lateral_id
+                  AND le2.lateral_id <> uc1.ancestor_id
+         JOIN tmp_up_chain uc2
+              ON uc2.ancestor_id = le2.lateral_id
 WHERE uc1.person_id <> uc2.person_id
- AND uc1.up_steps <= 3
- AND uc2.up_steps <= 3
-
+  AND uc1.up_steps <= 3
+  AND uc2.up_steps <= 3
 
 UNION ALL
 
-
--- ── B3b. Two lateral hops, no down (cousin with no parent data) ───────────
+-- ── B3b. Two lateral hops, no down ───────────────────────────────────────
 SELECT DISTINCT
-   uc.person_id                   AS person_id,
-   le2.lateral_id                 AS related_person_id,
-   uc.up_steps                    AS gen_delta,
-   2                              AS degree,
-   uc.up_steps                    AS lca_gen
+    uc.person_id                   AS person_id,
+    le2.lateral_id                 AS related_person_id,
+    uc.up_steps                    AS gen_delta,
+    2                              AS degree,
+    uc.up_steps                    AS lca_gen
 FROM tmp_up_chain uc
-JOIN tmp_lateral_edges le1 ON le1.person_id   = uc.ancestor_id
-JOIN tmp_lateral_edges le2 ON le2.person_id   = le1.lateral_id
-                          AND le2.lateral_id <> uc.ancestor_id
+         JOIN tmp_lateral_edges le1
+              ON le1.person_id = uc.ancestor_id
+         JOIN tmp_lateral_edges le2
+              ON le2.person_id = le1.lateral_id
+                  AND le2.lateral_id <> uc.ancestor_id
 WHERE uc.person_id <> le2.lateral_id
- AND uc.up_steps <= 3
-
+  AND uc.up_steps <= 3
 
 UNION ALL
 
-
--- ── B3b reverse. Cousin's child → person (cousin once removed, no parent data)
+-- ── B3b reverse. Cousin once removed, no parent data ─────────────────────
 SELECT DISTINCT
-   le2.lateral_id                 AS person_id,
-   uc.person_id                   AS related_person_id,
-   0 - uc.up_steps                AS gen_delta,
-   2                              AS degree,
-   uc.up_steps                    AS lca_gen
+    le2.lateral_id                 AS person_id,
+    uc.person_id                   AS related_person_id,
+    0 - uc.up_steps                AS gen_delta,
+    2                              AS degree,
+    uc.up_steps                    AS lca_gen
 FROM tmp_up_chain uc
-JOIN tmp_lateral_edges le1 ON le1.person_id   = uc.ancestor_id
-JOIN tmp_lateral_edges le2 ON le2.person_id   = le1.lateral_id
-                          AND le2.lateral_id <> uc.ancestor_id
+         JOIN tmp_lateral_edges le1
+              ON le1.person_id = uc.ancestor_id
+         JOIN tmp_lateral_edges le2
+              ON le2.person_id = le1.lateral_id
+                  AND le2.lateral_id <> uc.ancestor_id
 WHERE uc.person_id <> le2.lateral_id
- AND uc.up_steps <= 3
-
+  AND uc.up_steps <= 3
 
 UNION ALL
 
-
--- ── S1. Stepparent: person's parent married someone → stepparent ──────────
--- Path: person →(up)→ parent →(spouse)→ stepparent
--- gen_delta = +1, degree = 0, marked via degree=0 but needs label override
--- We use degree=10 as a flag for "step" relationships (not a real geo degree)
+-- ── S1. Step direct line: ancestor's spouse → step relation ──────────────
+-- up_steps = 1 => STEPPARENT
+-- up_steps = 2 => STEP_GRANDPARENT
 SELECT DISTINCT
-   uc.person_id                   AS person_id,
-   sp.spouse_id                   AS related_person_id,
-   uc.up_steps                    AS gen_delta,
-   10 + uc.up_steps               AS degree,   -- 10=step flag, +up_steps for gen
-   uc.up_steps                    AS lca_gen
+    uc.person_id                   AS person_id,
+    sp.spouse_id                   AS related_person_id,
+    uc.up_steps                    AS gen_delta,
+    10                             AS degree,
+    uc.up_steps                    AS lca_gen
 FROM tmp_up_chain uc
-JOIN tmp_spouse_edges sp ON sp.person_id = uc.ancestor_id
+         JOIN tmp_spouse_edges sp
+              ON sp.person_id = uc.ancestor_id
 WHERE uc.person_id <> sp.spouse_id
- AND uc.up_steps <= 2            -- stepparent (1) and step-grandparent (2)
-
+  AND uc.up_steps <= 2
 
 UNION ALL
 
-
--- ── S1 reverse. Stepchild: stepparent sees person as stepchild ────────────
+-- ── S1 reverse. Stepchild / stepgrandchild ───────────────────────────────
 SELECT DISTINCT
-   sp.spouse_id                   AS person_id,
-   uc.person_id                   AS related_person_id,
-   0 - uc.up_steps                AS gen_delta,
-   10 + uc.up_steps               AS degree,
-   uc.up_steps                    AS lca_gen
+    sp.spouse_id                   AS person_id,
+    uc.person_id                   AS related_person_id,
+    0 - uc.up_steps                AS gen_delta,
+    10                             AS degree,
+    uc.up_steps                    AS lca_gen
 FROM tmp_up_chain uc
-JOIN tmp_spouse_edges sp ON sp.person_id = uc.ancestor_id
+         JOIN tmp_spouse_edges sp
+              ON sp.person_id = uc.ancestor_id
 WHERE uc.person_id <> sp.spouse_id
- AND uc.up_steps <= 2
-
+  AND uc.up_steps <= 2
 
 UNION ALL
 
-
--- ── S2. Stepsibling: person's parent's spouse's child ────────────────────
--- Path: person →(up 1)→ parent →(spouse)→ stepparent →(down 1)→ stepsibling
+-- ── S2. Stepsibling: parent's spouse's child, excluding bio siblings ─────
 SELECT DISTINCT
-   uc1.person_id                  AS person_id,
-   uc2.person_id                  AS related_person_id,
-   0                              AS gen_delta,   -- same generation
-   11                             AS degree,      -- 11 = stepsibling flag
-   1                              AS lca_gen
+    uc1.person_id                  AS person_id,
+    uc2.person_id                  AS related_person_id,
+    0                              AS gen_delta,
+    11                             AS degree,
+    1                              AS lca_gen
 FROM tmp_up_chain uc1
-JOIN tmp_spouse_edges sp  ON sp.person_id   = uc1.ancestor_id
-JOIN tmp_up_chain uc2     ON uc2.ancestor_id = sp.spouse_id
+         JOIN tmp_spouse_edges sp
+              ON sp.person_id = uc1.ancestor_id
+         JOIN tmp_up_chain uc2
+              ON uc2.ancestor_id = sp.spouse_id
 WHERE uc1.up_steps = 1
- AND uc2.up_steps = 1
- AND uc1.person_id <> uc2.person_id;
+  AND uc2.up_steps = 1
+  AND uc1.person_id <> uc2.person_id
+  AND NOT EXISTS (
+    SELECT 1
+    FROM tmp_parent_edges p1
+             JOIN tmp_parent_edges p2
+                  ON p1.parent_id = p2.parent_id
+    WHERE p1.person_id = uc1.person_id
+      AND p2.person_id = uc2.person_id
+);
 
-
-CREATE INDEX idx_v2_kv_person  ON tmp_kinship_vectors (person_id);
-CREATE INDEX idx_v2_kv_related ON tmp_kinship_vectors (related_person_id);
-CREATE INDEX idx_v2_kv_gendeg  ON tmp_kinship_vectors (gen_delta, degree);
-
-
+CREATE INDEX idx_v3_kv_person  ON tmp_kinship_vectors (person_id);
+CREATE INDEX idx_v3_kv_related ON tmp_kinship_vectors (related_person_id);
+CREATE INDEX idx_v3_kv_gendeg  ON tmp_kinship_vectors (gen_delta, degree);
 
 
 -- ============================================================
@@ -1310,76 +1314,72 @@ CREATE INDEX idx_v2_kv_gendeg  ON tmp_kinship_vectors (gen_delta, degree);
 DROP TABLE IF EXISTS tmp_labeled_kinships;
 CREATE TEMP TABLE tmp_labeled_kinships AS
 SELECT
-   person_id,
-   related_person_id,
-   gen_delta,
-   degree,
-   lca_gen,
-   CASE
-       -- degree 0: direct lineage
-       WHEN degree = 0 AND gen_delta =  1 THEN 'PARENT'
-       WHEN degree = 0 AND gen_delta = -1 THEN 'CHILD'
-       WHEN degree = 0 AND gen_delta =  2 THEN 'GRANDPARENT'
-       WHEN degree = 0 AND gen_delta = -2 THEN 'GRANDCHILD'
-       WHEN degree = 0 AND gen_delta >=  3 THEN 'ANCESTOR'
-       WHEN degree = 0 AND gen_delta <= -3 THEN 'DESCENDANT'
+    person_id,
+    related_person_id,
+    gen_delta,
+    degree,
+    lca_gen,
+    CASE
+        -- degree 0: direct lineage
+        WHEN degree = 0 AND gen_delta =  1 THEN 'PARENT'
+        WHEN degree = 0 AND gen_delta = -1 THEN 'CHILD'
+        WHEN degree = 0 AND gen_delta =  2 THEN 'GRANDPARENT'
+        WHEN degree = 0 AND gen_delta = -2 THEN 'GRANDCHILD'
+        WHEN degree = 0 AND gen_delta >=  3 THEN 'ANCESTOR'
+        WHEN degree = 0 AND gen_delta <= -3 THEN 'DESCENDANT'
 
+        -- degree 1: sibling line
+        WHEN degree = 1 AND gen_delta =  0 THEN 'SIBLING'
+        WHEN degree = 1 AND gen_delta =  1 THEN 'AUNT_UNCLE'
+        WHEN degree = 1 AND gen_delta = -1 THEN 'NIECE_NEPHEW'
+        WHEN degree = 1 AND gen_delta =  2 THEN 'GREAT_AUNT_UNCLE'
+        WHEN degree = 1 AND gen_delta = -2 THEN 'GREAT_NIECE_NEPHEW'
+        WHEN degree = 1 AND gen_delta >=  3 THEN 'ANCESTOR'
+        WHEN degree = 1 AND gen_delta <= -3 THEN 'DESCENDANT'
 
-       -- degree 1: sibling line
-       WHEN degree = 1 AND gen_delta =  0 THEN 'SIBLING'
-       WHEN degree = 1 AND gen_delta =  1 THEN 'AUNT_UNCLE'
-       WHEN degree = 1 AND gen_delta = -1 THEN 'NIECE_NEPHEW'
-       WHEN degree = 1 AND gen_delta =  2 THEN 'GREAT_AUNT_UNCLE'
-       WHEN degree = 1 AND gen_delta = -2 THEN 'GREAT_NIECE_NEPHEW'
-       WHEN degree = 1 AND gen_delta >=  3 THEN 'ANCESTOR'
-       WHEN degree = 1 AND gen_delta <= -3 THEN 'DESCENDANT'
+        -- degree 2: 1st cousins
+        WHEN degree = 2 AND gen_delta =  0 THEN 'COUSIN_1ST'
+        WHEN degree = 2 AND gen_delta =  1 THEN 'COUSIN_1ST_1R_UP'
+        WHEN degree = 2 AND gen_delta = -1 THEN 'COUSIN_1ST_1R_DOWN'
+        WHEN degree = 2 AND gen_delta =  2 THEN 'COUSIN_1ST_2R_UP'
+        WHEN degree = 2 AND gen_delta = -2 THEN 'COUSIN_1ST_2R_DOWN'
+        WHEN degree = 2 AND ABS(gen_delta) >= 3 THEN 'RELATIVE'
 
+        -- degree 3: 2nd cousins
+        WHEN degree = 3 AND gen_delta =  0 THEN 'COUSIN_2ND'
+        WHEN degree = 3 AND gen_delta =  1 THEN 'COUSIN_2ND_1R_UP'
+        WHEN degree = 3 AND gen_delta = -1 THEN 'COUSIN_2ND_1R_DOWN'
+        WHEN degree = 3 AND ABS(gen_delta) >= 2 THEN 'RELATIVE'
 
-       -- degree 2: 1st cousins
-       WHEN degree = 2 AND gen_delta =  0 THEN 'COUSIN_1ST'
-       WHEN degree = 2 AND gen_delta =  1 THEN 'COUSIN_1ST_1R_UP'
-       WHEN degree = 2 AND gen_delta = -1 THEN 'COUSIN_1ST_1R_DOWN'
-       WHEN degree = 2 AND gen_delta =  2 THEN 'COUSIN_1ST_2R_UP'
-       WHEN degree = 2 AND gen_delta = -2 THEN 'COUSIN_1ST_2R_DOWN'
-       WHEN degree = 2 AND ABS(gen_delta) >= 3 THEN 'RELATIVE'
+        -- step direct line
+        WHEN degree = 10 AND gen_delta =  1 THEN 'STEPPARENT'
+        WHEN degree = 10 AND gen_delta = -1 THEN 'STEPCHILD'
+        WHEN degree = 10 AND gen_delta =  2 THEN 'STEP_GRANDPARENT'
+        WHEN degree = 10 AND gen_delta = -2 THEN 'STEP_GRANDCHILD'
 
+        -- step same generation
+        WHEN degree = 11 AND gen_delta = 0 THEN 'STEPSIBLING'
 
-       -- degree 3: 2nd cousins (from B3 lateral x2)
-       WHEN degree = 3 AND gen_delta =  0 THEN 'COUSIN_2ND'
-       WHEN degree = 3 AND gen_delta =  1 THEN 'COUSIN_2ND_1R_UP'
-       WHEN degree = 3 AND gen_delta = -1 THEN 'COUSIN_2ND_1R_DOWN'
-       WHEN degree = 3 AND ABS(gen_delta) >= 2 THEN 'RELATIVE'
-
-
-       -- step-relationships (degree 10+ flag)
-       WHEN degree = 11                THEN 'STEPSIBLING'
-       WHEN degree = 10 AND gen_delta =  1 THEN 'STEPPARENT'
-       WHEN degree = 10 AND gen_delta = -1 THEN 'STEPCHILD'
-       WHEN degree = 10 AND gen_delta =  2 THEN 'STEP_GRANDPARENT'
-       WHEN degree = 10 AND gen_delta = -2 THEN 'STEP_GRANDCHILD'
-
-
-       ELSE 'RELATIVE'
-   END AS kinship
+        ELSE 'RELATIVE'
+        END AS kinship
 FROM (
-   SELECT DISTINCT ON (person_id, related_person_id)
-       person_id,
-       related_person_id,
-       gen_delta,
-       degree,
-       lca_gen
-   FROM tmp_kinship_vectors
-   ORDER BY
-       person_id,
-       related_person_id,
-       degree    ASC,
-       ABS(gen_delta) ASC,
-       lca_gen   ASC
-) closest;
+         SELECT DISTINCT ON (person_id, related_person_id)
+             person_id,
+             related_person_id,
+             gen_delta,
+             degree,
+             lca_gen
+         FROM tmp_kinship_vectors
+         ORDER BY
+             person_id,
+             related_person_id,
+             degree ASC,
+             ABS(gen_delta) ASC,
+             lca_gen ASC
+     ) closest;
 
-
-CREATE INDEX idx_v2_lk_person  ON tmp_labeled_kinships (person_id);
-CREATE INDEX idx_v2_lk_related ON tmp_labeled_kinships (related_person_id);
+CREATE INDEX idx_v3_lk_person  ON tmp_labeled_kinships (person_id);
+CREATE INDEX idx_v3_lk_related ON tmp_labeled_kinships (related_person_id);
 
 
 -- ============================================================
@@ -1388,23 +1388,33 @@ CREATE INDEX idx_v2_lk_related ON tmp_labeled_kinships (related_person_id);
 DROP TABLE IF EXISTS tmp_explicit_kinships;
 CREATE TEMP TABLE tmp_explicit_kinships AS
 SELECT
-   r.person_id,
-   r.related_person_id,
-   mk.kinship,
-   0 AS gen_delta,
-   0 AS degree,
-   0 AS lca_gen
+    r.person_id,
+    r.related_person_id,
+    mk.kinship,
+    0 AS gen_delta,
+    0 AS degree,
+    0 AS lca_gen
 FROM core.relationship r
-JOIN core.mapkinship mk ON r.relationship = mk.relationship
+         JOIN core.mapkinship mk
+              ON r.relationship = mk.relationship
 WHERE mk.kinship IN (
-   'PARENT_INLAW','CHILD_INLAW','SIBLING_INLAW','RELATIVE_INLAW','RELATIVE',
-   'STEPPARENT','STEPCHILD','STEPSIBLING'   -- explicit step-rels override inferred
-)
-AND NOT EXISTS (
-   SELECT 1 FROM tmp_labeled_kinships lk
-   WHERE lk.person_id         = r.person_id
-     AND lk.related_person_id = r.related_person_id
-     AND lk.kinship NOT IN ('RELATIVE')
+                     'PARENT_INLAW',
+                     'CHILD_INLAW',
+                     'SIBLING_INLAW',
+                     'RELATIVE_INLAW',
+                     'RELATIVE',
+                     'STEPPARENT',
+                     'STEPCHILD',
+                     'STEPSIBLING',
+                     'STEP_GRANDPARENT',
+                     'STEP_GRANDCHILD'
+    )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM tmp_labeled_kinships lk
+    WHERE lk.person_id = r.person_id
+      AND lk.related_person_id = r.related_person_id
+      AND lk.kinship <> 'RELATIVE'
 );
 
 
@@ -1413,74 +1423,98 @@ AND NOT EXISTS (
 -- ============================================================
 DROP TABLE IF EXISTS core.kinship CASCADE;
 
-
 CREATE TABLE core.kinship (
-   person_id         VARCHAR(50)  NOT NULL,
-   kinship           VARCHAR(30)  NOT NULL,
-   related_person_id VARCHAR(50)  NOT NULL,
-   gen_delta         SMALLINT,
-   degree            SMALLINT,
-   lca_gen           SMALLINT,
-   PRIMARY KEY (person_id, related_person_id)
+                              person_id         VARCHAR(50) NOT NULL,
+                              kinship           VARCHAR(30) NOT NULL,
+                              related_person_id VARCHAR(50) NOT NULL,
+                              gen_delta         SMALLINT,
+                              degree            SMALLINT,
+                              lca_gen           SMALLINT,
+                              PRIMARY KEY (person_id, related_person_id)
 );
 
-
 INSERT INTO core.kinship
-   (person_id, kinship, related_person_id, gen_delta, degree, lca_gen)
-SELECT person_id, kinship, related_person_id, gen_delta, degree, lca_gen
+(person_id, kinship, related_person_id, gen_delta, degree, lca_gen)
+SELECT
+    person_id,
+    kinship,
+    related_person_id,
+    gen_delta,
+    degree,
+    lca_gen
 FROM (
-   SELECT
-       person_id, kinship, related_person_id, gen_delta, degree, lca_gen,
-       ROW_NUMBER() OVER (
-           PARTITION BY person_id, related_person_id
-           ORDER BY CASE kinship
-               WHEN 'PARENT'              THEN 1
-               WHEN 'CHILD'               THEN 2
-               WHEN 'SIBLING'             THEN 3
-               WHEN 'GRANDPARENT'         THEN 4
-               WHEN 'GRANDCHILD'          THEN 5
-               WHEN 'AUNT_UNCLE'          THEN 6
-               WHEN 'NIECE_NEPHEW'        THEN 7
-               WHEN 'GREAT_AUNT_UNCLE'    THEN 8
-               WHEN 'GREAT_NIECE_NEPHEW'  THEN 9
-               WHEN 'COUSIN_1ST'          THEN 10
-               WHEN 'COUSIN_1ST_1R_UP'    THEN 11
-               WHEN 'COUSIN_1ST_1R_DOWN'  THEN 11
-               WHEN 'COUSIN_1ST_2R_UP'    THEN 12
-               WHEN 'COUSIN_1ST_2R_DOWN'  THEN 12
-               WHEN 'COUSIN_2ND'          THEN 13
-               WHEN 'COUSIN_2ND_1R_UP'    THEN 14
-               WHEN 'COUSIN_2ND_1R_DOWN'  THEN 14
-               WHEN 'ANCESTOR'            THEN 15
-               WHEN 'DESCENDANT'          THEN 16
-               WHEN 'PARENT_INLAW'        THEN 17
-               WHEN 'CHILD_INLAW'         THEN 18
-               WHEN 'SIBLING_INLAW'       THEN 19
-               WHEN 'RELATIVE_INLAW'      THEN 20
-               WHEN 'RELATIVE'            THEN 21
-               WHEN 'STEPPARENT'          THEN 22
-               WHEN 'STEPCHILD'           THEN 23
-               WHEN 'STEPSIBLING'         THEN 24
-               WHEN 'STEP_GRANDPARENT'    THEN 25
-               WHEN 'STEP_GRANDCHILD'     THEN 26
-               ELSE 99
-           END
-       ) AS rn
-   FROM (
-       SELECT person_id, kinship, related_person_id, gen_delta, degree, lca_gen
-       FROM tmp_labeled_kinships
-       UNION ALL
-       SELECT person_id, kinship, related_person_id, gen_delta, degree, lca_gen
-       FROM tmp_explicit_kinships
-   ) combined
-   WHERE person_id <> related_person_id
-) ranked
+         SELECT
+             person_id,
+             kinship,
+             related_person_id,
+             gen_delta,
+             degree,
+             lca_gen,
+             ROW_NUMBER() OVER (
+                 PARTITION BY person_id, related_person_id
+                 ORDER BY CASE kinship
+                              WHEN 'PARENT'              THEN 1
+                              WHEN 'CHILD'               THEN 2
+                              WHEN 'SIBLING'             THEN 3
+                              WHEN 'GRANDPARENT'         THEN 4
+                              WHEN 'GRANDCHILD'          THEN 5
+                              WHEN 'AUNT_UNCLE'          THEN 6
+                              WHEN 'NIECE_NEPHEW'        THEN 7
+                              WHEN 'GREAT_AUNT_UNCLE'    THEN 8
+                              WHEN 'GREAT_NIECE_NEPHEW'  THEN 9
+                              WHEN 'COUSIN_1ST'          THEN 10
+                              WHEN 'COUSIN_1ST_1R_UP'    THEN 11
+                              WHEN 'COUSIN_1ST_1R_DOWN'  THEN 11
+                              WHEN 'COUSIN_1ST_2R_UP'    THEN 12
+                              WHEN 'COUSIN_1ST_2R_DOWN'  THEN 12
+                              WHEN 'COUSIN_2ND'          THEN 13
+                              WHEN 'COUSIN_2ND_1R_UP'    THEN 14
+                              WHEN 'COUSIN_2ND_1R_DOWN'  THEN 14
+                              WHEN 'ANCESTOR'            THEN 15
+                              WHEN 'DESCENDANT'          THEN 16
+                              WHEN 'PARENT_INLAW'        THEN 17
+                              WHEN 'CHILD_INLAW'         THEN 18
+                              WHEN 'SIBLING_INLAW'       THEN 19
+                              WHEN 'RELATIVE_INLAW'      THEN 20
+                              WHEN 'RELATIVE'            THEN 21
+                              WHEN 'STEPPARENT'          THEN 22
+                              WHEN 'STEPCHILD'           THEN 23
+                              WHEN 'STEPSIBLING'         THEN 24
+                              WHEN 'STEP_GRANDPARENT'    THEN 25
+                              WHEN 'STEP_GRANDCHILD'     THEN 26
+                              ELSE 99
+                     END
+                 ) AS rn
+         FROM (
+                  SELECT
+                      person_id,
+                      kinship,
+                      related_person_id,
+                      gen_delta,
+                      degree,
+                      lca_gen
+                  FROM tmp_labeled_kinships
+
+                  UNION ALL
+
+                  SELECT
+                      person_id,
+                      kinship,
+                      related_person_id,
+                      gen_delta,
+                      degree,
+                      lca_gen
+                  FROM tmp_explicit_kinships
+              ) combined
+         WHERE person_id <> related_person_id
+     ) ranked
 WHERE rn = 1;
 
 CREATE INDEX idx_kinship_person_id  ON core.kinship (person_id);
 CREATE INDEX idx_kinship_related_id ON core.kinship (related_person_id);
 CREATE INDEX idx_kinship_type       ON core.kinship (kinship);
 CREATE INDEX idx_kinship_gen_deg    ON core.kinship (gen_delta, degree);
+
 
 -- ============================================================
 -- STEP 8: cleanup
@@ -1502,6 +1536,18 @@ DROP TABLE IF EXISTS tmp_explicit_kinships;
 -- GROUP BY kinship, gen_delta, degree
 -- ORDER BY degree, gen_delta DESC;
 
+-- Helpful spot checks:
+-- 1) check no stepparent ended up as stepsibling
+-- SELECT *
+-- FROM core.kinship
+-- WHERE kinship IN ('STEPPARENT', 'STEPSIBLING');
+
+-- 2) inspect step rows by degree/gen_delta
+-- SELECT degree, gen_delta, kinship, COUNT(*)
+-- FROM core.kinship
+-- WHERE kinship LIKE 'STEP%'
+-- GROUP BY degree, gen_delta, kinship
+-- ORDER BY degree, gen_delta, kinship;
 
 
 -------------------- {core.personpoint} ---------------------
