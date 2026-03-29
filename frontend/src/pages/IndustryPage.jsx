@@ -26,9 +26,9 @@ const EXCLUDED_PROFESSIONS = [
 const METRIC_OPTIONS = [
   { key: "role_count", label: "Role Count" },
   { key: "movie_count", label: "Movie Count" },
-  { key: "avg_credit_order", label: "Avg Credit Order" },
-  { key: "avg_rating", label: "Avg Rating" },
-  { key: "avg_votes", label: "Avg Votes" },
+  { key: "avg_credit_order", label: "Median Credit Order" },
+  { key: "avg_rating", label: "Median Rating" },
+  { key: "avg_votes", label: "Median Votes" },
 ];
 
 function formatYAxis(v) {
@@ -58,7 +58,11 @@ function formatMetricValue(metricKey, value) {
     return Number(value).toFixed(2);
   }
 
-  if (metricKey === "avg_votes" || metricKey === "role_count" || metricKey === "movie_count") {
+  if (
+    metricKey === "avg_votes" ||
+    metricKey === "role_count" ||
+    metricKey === "movie_count"
+  ) {
     return formatYAxis(Number(value));
   }
 
@@ -162,40 +166,91 @@ export default function IndustryPage() {
     return Object.values(matrix).sort((a, b) => a.order - b.order);
   }, [participationData]);
 
-  // CHART 2: switchable metric by profession
+  // CHART 2: total per profession for counts; median for averages
   const chart2Data = useMemo(() => {
     const map = {};
 
     cleanRows.forEach((r) => {
-      const profession = String(r.profession || "").toLowerCase();
+      const professionKey = String(r.profession || "").toLowerCase();
       const isNepo = String(r.nepo_status) === "Nepo Baby";
-      const value = Number(r[selectedMetric]) || 0;
 
-      if (!map[profession]) {
-        map[profession] = {
-          profession: formatProfessionLabel(profession),
-          nepoValues: [],
-          nonNepoValues: [],
+      if (!map[professionKey]) {
+        map[professionKey] = {
+          profession: formatProfessionLabel(professionKey),
+
+          // summed metrics
+          nepoRoleCount: 0,
+          nonNepoRoleCount: 0,
+          nepoMovieCount: 0,
+          nonNepoMovieCount: 0,
+
+          // distributions for median metrics
+          nepoCreditOrders: [],
+          nonNepoCreditOrders: [],
+          nepoRatings: [],
+          nonNepoRatings: [],
+          nepoVotes: [],
+          nonNepoVotes: [],
+
+          // used for ordering bar groups
           totalWeight: 0,
         };
       }
 
+      const roleCount = Number(r.role_count) || 0;
+      const movieCount = Number(r.movie_count) || 0;
+      const avgCreditOrder = Number(r.avg_credit_order) || 0;
+      const avgRating = Number(r.avg_rating) || 0;
+      const avgVotes = Number(r.avg_votes) || 0;
+
       if (isNepo) {
-        map[profession].nepoValues.push(value);
+        map[professionKey].nepoRoleCount += roleCount;
+        map[professionKey].nepoMovieCount += movieCount;
+
+        if (avgCreditOrder > 0) map[professionKey].nepoCreditOrders.push(avgCreditOrder);
+        if (avgRating > 0) map[professionKey].nepoRatings.push(avgRating);
+        if (avgVotes > 0) map[professionKey].nepoVotes.push(avgVotes);
       } else {
-        map[profession].nonNepoValues.push(value);
+        map[professionKey].nonNepoRoleCount += roleCount;
+        map[professionKey].nonNepoMovieCount += movieCount;
+
+        if (avgCreditOrder > 0) map[professionKey].nonNepoCreditOrders.push(avgCreditOrder);
+        if (avgRating > 0) map[professionKey].nonNepoRatings.push(avgRating);
+        if (avgVotes > 0) map[professionKey].nonNepoVotes.push(avgVotes);
       }
 
-      map[profession].totalWeight += 1;
+      map[professionKey].totalWeight += 1;
     });
 
     return Object.values(map)
-      .map((d) => ({
-        profession: d.profession,
-        "G1 Nepo": +median(d.nepoValues).toFixed(2),
-        "G2 Non-Nepo": +median(d.nonNepoValues).toFixed(2),
-        totalWeight: d.totalWeight,
-      }))
+      .map((d) => {
+        let nepoValue = 0;
+        let nonNepoValue = 0;
+
+        if (selectedMetric === "role_count") {
+          nepoValue = d.nepoRoleCount;
+          nonNepoValue = d.nonNepoRoleCount;
+        } else if (selectedMetric === "movie_count") {
+          nepoValue = d.nepoMovieCount;
+          nonNepoValue = d.nonNepoMovieCount;
+        } else if (selectedMetric === "avg_credit_order") {
+          nepoValue = +median(d.nepoCreditOrders).toFixed(2);
+          nonNepoValue = +median(d.nonNepoCreditOrders).toFixed(2);
+        } else if (selectedMetric === "avg_rating") {
+          nepoValue = +median(d.nepoRatings).toFixed(2);
+          nonNepoValue = +median(d.nonNepoRatings).toFixed(2);
+        } else if (selectedMetric === "avg_votes") {
+          nepoValue = +median(d.nepoVotes).toFixed(2);
+          nonNepoValue = +median(d.nonNepoVotes).toFixed(2);
+        }
+
+        return {
+          profession: d.profession,
+          "G1 Nepo": nepoValue,
+          "G2 Non-Nepo": nonNepoValue,
+          totalWeight: d.totalWeight,
+        };
+      })
       .filter((d) => d["G1 Nepo"] > 0 || d["G2 Non-Nepo"] > 0)
       .sort((a, b) => b.totalWeight - a.totalWeight)
       .slice(0, 10);
@@ -234,6 +289,12 @@ export default function IndustryPage() {
               <span className="text-red">Chart 2.</span> Compares professions using
               a switchable metric across G1 Nepo and G2 Non-Nepo. Self, archive
               footage, archive sound, and casting director are excluded.
+            </p>
+            <p className="mb-3">
+              For <span className="text-red">Role Count</span> and{" "}
+              <span className="text-red">Movie Count</span>, values are summed
+              across all years per profession. For the average-style metrics,
+              the chart uses medians.
             </p>
           </div>
         </div>
@@ -395,7 +456,7 @@ export default function IndustryPage() {
                       tick={{ fill: "var(--color-print)", fontSize: 11 }}
                       tickLine={false}
                       axisLine={false}
-                      width={50}
+                      width={60}
                     />
                     <Tooltip content={<CustomTooltip metricKey={selectedMetric} />} />
                     <Legend
