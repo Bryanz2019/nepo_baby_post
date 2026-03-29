@@ -4,6 +4,8 @@ import Button from '../components/Button';
 import { useLocation, NavLink, useNavigate } from 'react-router';
 import config from '../config.json';
 import LeftPanel from '../components/LeftPanel';
+import ProfileTable from '../components/ProfileTable';
+
 
 function EvidenceBoard() {
   const location = useLocation()
@@ -94,8 +96,29 @@ function EvidenceBoard() {
           ))}
         </div>
       )
+    },
+    {
+      key: 'career_start_year',
+      header: 'Career Start Year',
+      renderCell: (row) => row.career_start_year != null ? row.career_start_year : 'N/A'
     }
   ]
+
+  const panelData = [
+    { key: 'FULL NAME', value: selectedPerson?.name ? selectedPerson.name : 'N/A' },
+    { key: 'BORN', value: selectedPerson?.birth_year ? selectedPerson.birth_year : 'N/A' },
+    { key: 'PROFESSION', value: selectedPerson?.professions
+      ? (Array.isArray(selectedPerson?.professions) ? selectedPerson.professions : selectedPerson.professions.split(','))
+          .map(s =>
+            s.trim()
+              .replaceAll('_', ' ')
+              .split(' ')
+              .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(' ')
+          ).join(', ') : 'N/A'},
+    { key: 'DEBUT AGE', value: selectedPerson?.career_start_year && selectedPerson?.birth_year ? selectedPerson.career_start_year - selectedPerson.birth_year : 'N/A' }
+  ]
+
 
   useEffect(() => {
     // if no keyword and category, clear results and return (handle the case when user directly navigates to this page without search)
@@ -135,26 +158,31 @@ function EvidenceBoard() {
 
             <div className='flex flex-col'>
               <div className='head-huge text-ink text-[24px] mb-0.5'>{selectedPerson.name}</div>
-              <div className='head-huge text-ink text-[24px]'>{Math.round(selectedPerson.nepo_score * 100) / 100}
+              <div className='head-huge text-ink text-[38px]'>{Math.round(selectedPerson.nepo_score * 100) / 100}
                 <span className='label-tiny text-red ml-1'>NEPO SCORE<sup>TM</sup></span>
               </div>
-              <div className='label-tiny text-print'>SINCE {selectedPerson.birth_year}</div>
-              <div className='flex flex-row items-center gap-2 mt-2 flex-wrap'>
+              <div className='label-tiny text-print'>SINCE {selectedPerson.career_start_year}</div>
+              <div className='flex flex-row flex-wrap mt-0.5 gap-y-1'>
                 {Array.isArray(selectedPerson.professions) && selectedPerson.professions.length > 0 ? (
                   selectedPerson.professions.map((prof, idx) => (
                     <span
                       key={idx}
-                      className='border-0 px-2 h-4.5 flex items-center justify-center bg-ink text-paper label-tiny mr-2'
+                      className='border-0 w-fit h-fit px-2 pt-0.5 flex items-end bg-ink text-paper justify-center label-tiny mr-2'
                     >
                       {prof}
                     </span>
                   ))
                 ) : (
-                  <span className='border-0 px-2 h-4.5 flex items-center justify-center bg-ink text-paper label-tiny mr-2'>
+                  <span className='border-0 w-fit h-fit px-2 pt-0.5 flex items-end bg-ink text-paper justify-center label-tiny mr-2'>
                     N/A
                   </span>
                 )}
               </div>
+            </div>
+
+
+            <div className='w-full bg-panel mt-2'>
+              <ProfileTable className='border-0 px-0!' title='KEY METRICS' data={panelData} />
             </div>
 
             <NavLink to={`/person/${selectedPerson.person_id}`}>
@@ -166,7 +194,7 @@ function EvidenceBoard() {
         }
 
         {/* right main content */}
-        <div className='flex-1 min-w-0 flex flex-col bg-panel'>
+        <div className='flex-1 bg-paper'>
 
           {/* Search Bar */}
           <div className='w-full pl-6 py-3 bg-panel'>
