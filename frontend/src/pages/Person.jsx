@@ -28,8 +28,6 @@ function Person() {
 
     if (!data) {
         return <div className='p-6'>Loading...</div>
-    } else {
-        console.log('Fetched person data:', data.professions);
     }
 
 
@@ -65,12 +63,12 @@ function Person() {
               
               <div className='flex flex-col'>
                 <div className='head-huge text-ink text-[24px] mb-0.5'>{data.primary_name}</div>
-                <div className='head-huge text-ink text-[38px]'>{Math.round(data.nepo_score * 100) / 100}
+                <div className='head-huge text-ink text-[38px]'>{data.nepo_score? Math.round(data.nepo_score * 100) / 100 : 0}
                   <span className='label-tiny text-red ml-1'>NEPO SCORE<sup>TM</sup></span>
                 </div>
-                <div className='label-tiny text-print'>SINCE {data.birth_year}</div>
+                <div className='label-tiny text-print'>SINCE {data.career_start_year? data.career_start_year : 'N/A'}</div>
                 <div className='flex flex-row flex-wrap mt-0.5 gap-y-1'>
-                  {data.professions.split(', ').map((prof, idx) => (
+                  {data.professions && data.professions.split(', ').map((prof, idx) => (
                     <div key={idx} className='border-0 w-fit h-fit px-2 pt-0.5 flex items-end bg-ink text-paper justify-center label-tiny mr-2'>
                       {prof.charAt(0).toUpperCase() + prof.slice(1)}
                     </div>
