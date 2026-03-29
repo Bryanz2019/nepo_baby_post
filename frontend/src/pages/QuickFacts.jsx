@@ -1,8 +1,47 @@
 import { useOutletContext } from 'react-router'
 import ProfileTable from '../components/ProfileTable'
+import { useEffect, useState } from 'react'
 
 function QuickFacts() {
   const data = useOutletContext()
+  const [wikiSummary, setWikiSummary] = useState(null)
+
+  useEffect(() => {
+    async function fetchWikiSummary() {
+      if (!data?.primary_name) {
+        setWikiSummary(null)
+        return
+      }
+
+      try {
+        const searchRes = await fetch(
+          `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(data.primary_name)}&format=json&origin=*`
+        )
+
+        const searchData = await searchRes.json()
+        const title = searchData?.query?.search?.[0]?.title
+
+        if (!title) {
+          setWikiSummary(null)
+          return
+        }
+
+        const summaryRes = await fetch(
+          `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`
+        )
+
+        const summaryData = await summaryRes.json()
+        const summary = summaryData?.extract?.trim()
+
+        setWikiSummary(summary ? summary : null)
+      } catch (err) {
+        console.error(err)
+        setWikiSummary(null)
+      }
+    }
+
+    fetchWikiSummary()
+  }, [data?.primary_name])
 
   if (!data) {
     return <div className='p-6'>Loading...</div>
@@ -61,6 +100,12 @@ function QuickFacts() {
           </div>
         )}
 
+        {wikiSummary && (
+          <div className='mx-6 mt-4 p-3 border bg-panel'>
+            <div className='label-tiny text-red pb-1'>WIKIPEDIA SUMMARY</div>
+            <div className='body-medium text-print'>{wikiSummary}</div>
+          </div>
+        )}
       </div>
     </>
   )
