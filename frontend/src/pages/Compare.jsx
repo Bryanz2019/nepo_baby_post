@@ -177,7 +177,10 @@ if (!person) {
         </span>
         <h2
           className="head-huge"
-          style={{ color: "var(--color-ink)", lineHeight: 1, wordBreak: "break-word" }}
+          style={{ color: "var(--color-ink)", 
+                    lineHeight: 1, 
+                    wordBreak: "break-word", 
+          }}
         >
           {(person.name ?? "").toUpperCase()}
         </h2>
@@ -211,7 +214,7 @@ if (!person) {
               color: "var(--color-print)", 
               fontStyle: "italic", 
               maxWidth: 420,
-              height: "3rem",
+              height: "4.5rem",
               overflow: "hidden",
             }}
           >
