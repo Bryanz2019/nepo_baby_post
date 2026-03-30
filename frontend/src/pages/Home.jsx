@@ -107,20 +107,34 @@ function Home() {
           <div className='head-large'>
             Hollywood's Most Powerful Bloodlines
           </div>
-          <div className='subheader-medium mb-2'>
+          <div className='subheader-medium mb-4'>
             Mapped. Don't just make it in Hollywood — they were it.
           </div>
 
-          {familyDynasties.slice(0, 10).map((item) => (
-            <div key={item.dynasty_name} >
-              <div className='flex justify-between'>
-                <div className='body-medium'>{item.dynasty_name}</div>
-                <div>{Number(item.avg_nepo_score)}</div>
+          {familyDynasties.slice(0, 5).map((item) => (
+            <div key={item.dynasty_name}>
+              <div className='flex items-center body-medium w-full'>
+                <div className='w-[420px]'>
+                  THE {item.dynasty_name.toUpperCase()} ({item.member_count} members)
+                </div>
+
+                <div className='w-[140px]'>
+                  MAX: {Number(item.max_nepo_score).toFixed(0)}
+                </div>
+
+                <div className='w-[200px]'>
+                  TOTAL: {Number(item.total_nepo_score).toFixed(0)}
+                </div>
+
+                <div className='ml-auto'>
+                  AVG:{Number(item.avg_nepo_score).toFixed(0)}
+                </div>
               </div>
-              <div className='w-full h-2 bg-[#D4C9B5]'>
+
+              <div className='w-full h-2 bg-[#D4C9B5] mb-4'>
                 <div
                   className='h-2 bg-red'
-                  style={{ width: `${(Number(item.avg_nepo_score) / 4000) * 100}%` }}
+                  style={{ width: `${(Number(item.avg_nepo_score).toFixed(0) / 3318) * 100}%` }}
                 />
               </div>
             </div>

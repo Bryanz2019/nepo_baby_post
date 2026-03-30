@@ -25,15 +25,15 @@ function QuickFacts() {
 
         <div className='flex flex-row justify-evenly pt-2 gap-4 px-6 w-full min-w-0'>
           <div className='py-3 bg-panel border flex-1 min-w-0 flex flex-col items-center justify-center text-center'>
-            <div className='pb-1 label-medium text-red'>{data.total_titles}</div>
+            <div className='pb-1 label-medium text-red'>{data.total_titles? data.total_titles : 'N/A'}</div>
             <div className='body-medium text-print'>Total Films</div>
           </div>
           <div className='py-3 bg-panel border flex-1 min-w-0 flex flex-col items-center justify-center text-center'>
-            <div className='pb-1 label-medium text-red'>{data.avg_rating}</div>
+            <div className='pb-1 label-medium text-red'>{data.avg_rating? data.avg_rating : 'N/A'}</div>
             <div className='body-medium text-print'>Avg. Rating</div>
           </div>
           <div className='py-3 bg-panel border flex-1 min-w-0 flex flex-col items-center justify-center text-center'>
-            <div className='pb-1 label-medium text-red'>{data.total_votes.toLocaleString()}</div>
+            <div className='pb-1 label-medium text-red'>{data.total_votes? data.total_votes.toLocaleString() : 'N/A'}</div>
             <div className='body-medium text-print'>Total Votes</div>
           </div>
         </div>
@@ -57,7 +57,7 @@ function QuickFacts() {
               <span className='text-yellow-600 m-2'>⚠</span>
               NEPO BABY CONFIRMED
             </div>
-            <div className='subheader-medium text-print mx-6'>Nepo Score<sup>TM</sup>: &nbsp;&nbsp;{Math.round(data.nepo_score * 100) / 100}</div>
+            <div className='subheader-medium text-print mx-6'>Nepo Score<sup>TM</sup>: &nbsp;&nbsp;{data.nepo_score? Math.round(data.nepo_score * 100) / 100 : 0}</div>
           </div>
         )}
 

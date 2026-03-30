@@ -10,6 +10,9 @@ import Person from "./pages/Person";
 import QuickFacts from "./pages/QuickFacts";
 import CareerDossier from "./pages/CareerDossier";
 import StarFile from "./pages/StarFile";
+import TheScore from './pages/TheScore';
+import IndustryPage from './pages/IndustryPage';
+import FamilyTree from "./pages/FamilyTree";
 
 function App() {
   return (
@@ -21,13 +24,17 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path='/compare' element={<Compare />} />
             <Route path='/evidence_board' element={<EvidenceBoard />} />
+            <Route path="/the_score" element={<TheScore />} />
             <Route path='/nepo_pair' element={<NepoPair />} />
             <Route path='/collaborations' element={<Collaborations />} />
+            <Route path='/industry' element={<IndustryPage />} />
+
             <Route path='/demo' element={<Demo />} />
             <Route path='/person/:id' element={<Person />} >
               <Route index element={<QuickFacts />} />
               <Route path="career_dossier" element={<CareerDossier />} />
               <Route path="collaborators" element={<StarFile />} />
+              <Route path='family_tree' element={<FamilyTree />} />
             </Route>
             <Route path='*' element={<div className='text-center py-10 text-8xl text-red-400'>404 Not Found</div>} />
           </Routes>

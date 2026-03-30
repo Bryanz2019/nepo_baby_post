@@ -16,17 +16,25 @@ function CareerDossier() {
           <div className='subheader-medium text-ink'>Not all Nepo babies are created equal.</div>
         </div>
 
-        <div className='h-[40vh] overflow-y-auto'>
+        <div className='max-h-[40vh] overflow-y-auto'>
           {data.top_titles !== null && data.top_titles.map((title, idx) => (
             <div key={idx} className='mx-6 mt-4 p-3 border border-red bg-red/6'>
-              <div className='label-medium text-ink pb-1 px-2'>{title.primary_title}
-                <span className='ml-2 px-1.5 py-0.5 text-xs text-red bg-red/20 rounded'>{title.title_type}</span>
-                <span className='ml-2 px-1.5 py-0.5 text-xs text-red bg-red/20 rounded'>{'🔥 ' + title.num_votes.toLocaleString()}</span>
-                <span className='label-medium text-red px-2'>★ {title.average_rating}</span>
+              <div className='label-medium text-ink pb-1 px-2'>{title.primary_title? title.primary_title : 'N/A'}
+                {title.title_type && (
+                  <span className='ml-2 px-1.5 py-0.5 text-xs text-red bg-red/20 rounded'>{title.title_type}</span>
+                )}
+                {title.num_votes && (
+                  <span className='ml-2 px-1.5 py-0.5 text-xs text-red bg-red/20 rounded'>{'🔥 ' + title.num_votes.toLocaleString()}</span>
+                )}
+                {title.average_rating && (
+                  <span className='label-medium text-red px-2'>★ {title.average_rating}</span>
+                )}
               </div>
-              <div className='body-medium text-print pb-1 pl-2'>{title.start_year}
+              <div className='body-medium text-print pb-1 pl-2'>{title.start_year? title.start_year : 'N/A'}
                 <span className='ml-1.5 py-0.5'>·</span>
-                <span className='ml-1.5 py-0.5'>{title.category}</span>
+                {title.category && (
+                  <span className='ml-1.5 py-0.5'>{title.category}</span>
+                )}
               </div>
             </div>
           ))}
@@ -38,15 +46,15 @@ function CareerDossier() {
 
         <div className='flex flex-row justify-evenly p-2 gap-4 px-6 w-full min-w-0'>
           <div className='py-3 bg-panel border flex-1 min-w-0 flex flex-col items-center justify-center text-center'>
-            <div className='pb-1 label-medium text-red'>{data.total_titles}</div>
+            <div className='pb-1 label-medium text-red'>{data.total_titles? data.total_titles : 'N/A'}</div>
             <div className='body-medium text-print'>Total Films</div>
           </div>
           <div className='py-3 bg-panel border flex-1 min-w-0 flex flex-col items-center justify-center text-center'>
-            <div className='pb-1 label-medium text-red'>{data.avg_rating}</div>
+            <div className='pb-1 label-medium text-red'>{data.avg_rating? data.avg_rating : 'N/A'}</div>
             <div className='body-medium text-print'>Avg. Rating</div>
           </div>
           <div className='py-3 bg-panel border flex-1 min-w-0 flex flex-col items-center justify-center text-center'>
-            <div className='pb-1 label-medium text-red'>{data.total_votes.toLocaleString()}</div>
+            <div className='pb-1 label-medium text-red'>{data.total_votes? data.total_votes.toLocaleString() : 'N/A'}</div>
             <div className='body-medium text-print'>Total Votes</div>
           </div>
         </div>
