@@ -579,12 +579,38 @@ const getPersonFamliy = async function(req, res) {
   });
 }
 
-// PLACEHOLDER     Route 8: GET /person/:person_id/collaborators
+// Route 8: GET /person/:person_id/collaborators
 const getPersonCollaborators = async function(req, res) {
   connection.query(`
-    SELECT *
-    FROM core.person
-    LIMIT 10
+    WITH CollaborationCounts AS (
+   SELECT
+       p1.nconst AS p1_id,
+       p2.nconst AS p2_id,
+       COUNT(DISTINCT p1.tconst) AS total_collaborations
+   FROM core.person ps
+    JOIN core.principal p1  ON p1.nconst = ps.nconst
+       JOIN core.principal p2 ON p1.tconst = p2.tconst
+   WHERE ps.person_id = '${req.params.person_id}'
+       AND p2.nconst != p1.nconst
+       AND p2.category IN ('actor', 'actress')
+   GROUP BY p1.nconst, p2.nconst
+   HAVING COUNT(p1.tconst) >= 2
+   ORDER BY total_collaborations DESC
+   LIMIT 10
+)
+SELECT
+ p1.person_id AS person_id,
+ p1.name AS person_name,
+ p2.person_id AS colleague_id,
+ p2.name AS colleague_name,
+p2.image_url AS colleague_image,
+ COALESCE(ns.nepo_score, 0) AS nepo_score,
+ c.total_collaborations
+FROM CollaborationCounts c
+JOIN core.person p1 ON c.p1_id = p1.nconst
+JOIN core.person p2 ON c.p2_id = p2.nconst
+LEFT JOIN core.neposcore ns ON p2.person_id = ns.person_id
+ORDER BY c.total_collaborations DESC, colleague_name ASC;
   `, (err, data) => {
     if (err) {
       console.log(err);
@@ -887,11 +913,17 @@ const getTopNepoCollaborations = async function(req, res) {
   connection.query(`
 SELECT
  p1.name AS person_name,
+ p1.image_url AS person_image,
  p2.name AS colleague_name,
+ p2.image_url AS colleague_image,
+ COALESCE(ns1.nepo_score,0) AS person_neposcore,
+ COALESCE(ns2.nepo_score,0) AS colleague_neposcore,
  c.total_collaborations
 FROM core.collaboration c
   JOIN core.person p1 ON c.person_id = p1.nconst
   JOIN core.person p2 ON c.colleague_id = p2.nconst
+  LEFT JOIN core.neposcore ns1 ON p1.person_id = ns1.person_id
+  LEFT JOIN core.neposcore ns2 ON p2.person_id = ns2.person_id
 WHERE EXISTS (
   SELECT 1
   FROM core.kinship k
