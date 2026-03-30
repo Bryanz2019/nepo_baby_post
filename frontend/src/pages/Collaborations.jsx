@@ -24,8 +24,8 @@ function Collaborations() {
 
   const maxCollabs = Math.max(...pairs.map(p => p.total_collaborations))
 
-  // const PersonCard = ({ name, image, nepoScore }) => {
   const PersonCard = ({ name, image }) => {
+    // const PersonCard = ({ name, image, nepoScore }) => {
     const parts = name.trim().split(' ')
     const last = parts.pop()
     const first = parts.join(' ')
@@ -37,7 +37,7 @@ function Collaborations() {
         <div className='overflow-hidden relative' style={{ width: '140px', height: '155px', border: '3px solid #8b2020' }}>
           <img
             referrerPolicy="no-referrer"
-            src={image || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=e8e0d0&color=1a160d&size=200&font-size=0.33&bold=true`}
+            src={image}
             alt={name}
             className='w-full h-full object-cover'
             onError={e => {
@@ -52,7 +52,7 @@ function Collaborations() {
         </div>
 
         {/* Name + score */}
-        <div className='text-center'>
+        <div className='text-center' style={{ minHeight: '52px' }}>
           {first && (
             <div className='subheader-medium text-ink' style={{ fontSize: '14px' }}>
               {first}
@@ -63,7 +63,7 @@ function Collaborations() {
           </div>
           {/* {isNepo && (
             <div className='label-tiny text-red' style={{ fontSize: '11px' }}>
-             {Math.round(nepoScore)} NEPO SCORE<sup>TM</sup>
+              {Math.round(nepoScore)} NEPO SCORE<sup>TM</sup>
             </div>
           )} */}
         </div>
@@ -76,7 +76,7 @@ function Collaborations() {
 
       {/* Page header */}
       <div className='mb-6'>
-        <div className='label-tiny text-red' style={{ fontSize: '16px' }}>
+        <div className='label-tiny text-red' style={{ fontSize: '11px' }}>
           Classified Index · Repeated Co-Appearances Division
         </div>
         <div className='head-huge text-ink' style={{ fontSize: '36px', lineHeight: 1.1 }}>
@@ -106,19 +106,18 @@ function Collaborations() {
               <div className='flex flex-row gap-3 justify-center'>
                 <PersonCard
                   name={pair.person_name}
-                  image={pair.person_image}
-                  // nepoScore={pair.person_neposcore}
+                  image={pair.person_image_url}
+                  nepoScore={pair.person_neposcore}
                 />
                 <PersonCard
                   name={pair.colleague_name}
-                  image={pair.colleague_image}
-                  // nepoScore={pair.colleague_neposcore}
+                  image={pair.colleague_image_url}
+                  nepoScore={pair.colleague_neposcore}
                 />
               </div>
 
               {/* Collaboration bar */}
               <div className='mt-2'>
-                {/* Bar */}
                 <div className='relative w-full h-2' style={{ backgroundColor: '#c8b89a' }}>
                   <div
                     className='absolute left-0 top-0 h-full'
@@ -126,12 +125,8 @@ function Collaborations() {
                   />
                 </div>
 
-                {/* Labels: 0, actual number at position, max */}
                 <div className='relative w-full mt-0.5' style={{ height: '18px' }}>
-                  {/* 0 on left */}
                   <span className='absolute left-0 label-tiny text-print' style={{ fontSize: '11px' }}>0</span>
-
-                  {/* Actual number at proportional position, clamped so it doesn't overflow */}
                   <span
                     className='absolute label-tiny text-ink'
                     style={{
@@ -143,8 +138,6 @@ function Collaborations() {
                   >
                     {pair.total_collaborations}
                   </span>
-
-                  {/* Max on right */}
                   <span className='absolute right-0 label-tiny text-print' style={{ fontSize: '11px' }}>{maxCollabs}</span>
                 </div>
               </div>

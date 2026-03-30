@@ -72,7 +72,7 @@ function StarFile() {
                   >
                     <img
                       referrerPolicy="no-referrer"
-                      src={collab.colleague_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(collab.colleague_name)}&background=e8e0d0&color=1a160d&size=200&font-size=0.33&bold=true`}
+                      src={collab.colleague_image_url}
                       alt={collab.colleague_name}
                       className='w-full h-full object-cover group-hover:opacity-90 transition-opacity duration-150'
                       onError={e => {

@@ -648,7 +648,7 @@ GROUP BY
   });
 }
 
-// PLACEHOLDER   Route 7: GET /person/:person_id/family 
+// Route 7: GET /person/:person_id/family 
 const getPersonFamliy = async function (req, res) {
   connection.query(`
     SELECT
@@ -718,15 +718,17 @@ const getPersonCollaborators = async function (req, res) {
         pe2.image_url,
         'https://static.wikia.nocookie.net/pbskidsgo/images/5/57/Curious-George.jpg/revision/latest/scale-to-width-down/250?cb=20120712224008'
       ) AS colleague_image_url,
+      COALESCE(ns.nepo_score,0) AS nepo_score,
       COUNT(DISTINCT p1.tconst) AS total_collaborations
     FROM core.principal p1
       JOIN core.principal p2 ON p1.tconst = p2.tconst
       JOIN core.person pe1 ON pe1.nconst = p1.nconst
       JOIN core.person pe2 ON pe2.nconst = p2.nconst
+      LEFT JOIN core.neposcore ns ON pe2.person_id = ns.person_id
     WHERE pe1.person_id = '${req.params.person_id}'
       AND pe2.person_id != '${req.params.person_id}'
       AND p2.category IN ('actor', 'actress')
-    GROUP BY pe1.person_id, pe1.name, pe2.person_id, pe2.name
+    GROUP BY pe1.person_id, pe1.name, pe2.person_id, pe2.name, ns.nepo_score
     HAVING COUNT(p1.tconst) >= 2
     ORDER BY total_collaborations DESC, colleague_name ASC
     LIMIT 10;
@@ -1029,7 +1031,15 @@ const getTopNepoCollaborations = async function (req, res) {
   connection.query(`
     SELECT
         p1.name AS person_name,
+        COALESCE(
+        p1.image_url,
+        'https://static.wikia.nocookie.net/pbskidsgo/images/5/57/Curious-George.jpg/revision/latest/scale-to-width-down/250?cb=20120712224008'
+      ) AS person_image_url,
         p2.name AS colleague_name,
+        COALESCE(
+        p2.image_url,
+        'https://static.wikia.nocookie.net/pbskidsgo/images/5/57/Curious-George.jpg/revision/latest/scale-to-width-down/250?cb=20120712224008'
+      ) AS colleague_image_url,
         c.total_collaborations
     FROM core.collaboration c
         JOIN core.person p1 ON c.person_id = p1.nconst
