@@ -9,6 +9,7 @@ import Demo from './pages/Demo';
 import Person from "./pages/Person";
 import QuickFacts from "./pages/QuickFacts";
 import CareerDossier from "./pages/CareerDossier";
+import TheScore from './pages/TheScore';
 import IndustryPage from './pages/IndustryPage';
 import FamilyTree from "./pages/FamilyTree";
 
@@ -22,6 +23,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path='/compare' element={<Compare />} />
             <Route path='/evidence_board' element={<EvidenceBoard />} />
+            <Route path="/the_score" element={<TheScore />} />
             <Route path='/nepo_pair' element={<NepoPair />} />
             <Route path='/collaborations' element={<Collaborations />} />
             <Route path='/industry' element={<IndustryPage />} />

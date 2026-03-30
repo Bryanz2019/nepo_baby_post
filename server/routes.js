@@ -22,7 +22,7 @@ connection.connect((err) => err && console.log(err));
  *************/
 
 // Route 1: GET /homepage/top_nepo_babies
-const getTopNepoBabies = async function(req, res) {
+const getTopNepoBabies = async function (req, res) {
   connection.query(`
    WITH kinship_agg AS (
     SELECT
@@ -159,7 +159,7 @@ ORDER BY
 }
 
 // Route 2: GET /homepage/trending_this_year
-const getTrendingThisYear = async function(req, res) {
+const getTrendingThisYear = async function (req, res) {
   connection.query(`
 WITH rated_titles_this_year AS (
    SELECT DISTINCT
@@ -221,7 +221,7 @@ LIMIT 100;
 }
 
 // Route 3: GET /homepage/family_dynasties
-const getFamilyDynasties = async function(req, res) {
+const getFamilyDynasties = async function (req, res) {
   connection.query(`
 WITH family_dynasty AS (
    SELECT DISTINCT
@@ -325,7 +325,7 @@ LIMIT 20;
 }
 
 // Route 4: GET /homepage/surprise_me
-const getSurprisePerson = async function(req, res) {
+const getSurprisePerson = async function (req, res) {
   connection.query(`
   SELECT
     p.person_id,
@@ -353,17 +353,17 @@ const getSurprisePerson = async function(req, res) {
  ***************/
 
 // Route 5: GET /search
-const search = async function(req, res) {
+const search = async function (req, res) {
   const keyword = req.query.keyword;
   const category = req.query.category ? req.query.category
-                          .split(',').map(item => `'${item}'`)
-                          .join(', ') : "'ALL'";
+    .split(',').map(item => `'${item}'`)
+    .join(', ') : "'ALL'";
 
   if (!keyword || keyword.trim() === "") {
-    return res.json({});
+    return res.json([]);
   }
   connection.query(`
-    WITH k AS (
+WITH k AS (
    SELECT '%' || LOWER('${keyword}') || '%' AS kw
 )
 SELECT
@@ -376,6 +376,13 @@ SELECT
    EXTRACT(YEAR FROM p.birthdate)::int                     AS birth_year,
    COALESCE(ns.nepo_score, 0)                              AS nepo_score,
    COALESCE(pp.person_point, 0)                            AS person_point,
+  (
+       SELECT MIN(t.start_year)
+       FROM core.principal pr
+       LEFT JOIN core.title t ON t.tconst = pr.tconst
+       WHERE pr.nconst = p.nconst
+         AND LOWER(pr.category) NOT IN ('self', 'archive_footage', 'archive_sound')
+   ) AS career_start_year,
    (
        SELECT t.primary_title
        FROM core.principal pr
@@ -389,7 +396,7 @@ SELECT
        SELECT ARRAY_AGG(DISTINCT INITCAP(pr.category) ORDER BY INITCAP(pr.category))
        FROM core.principal pr
        WHERE pr.nconst = p.nconst
-         AND LOWER(pr.category) != 'self'
+         AND LOWER(pr.category) NOT IN ('self', 'archive_footage','archive_sound')
    )                                                       AS professions
 FROM core.person p
         LEFT JOIN core.neposcore   ns ON ns.person_id = p.person_id
@@ -428,7 +435,7 @@ LIMIT 100;
  ***********************/
 
 // Route 6: GET /person/:person_id
-const getPersonProfile = async function(req, res) {
+const getPersonProfile = async function (req, res) {
   connection.query(`
 WITH base_person AS (
     SELECT
@@ -642,7 +649,7 @@ GROUP BY
 }
 
 // PLACEHOLDER   Route 7: GET /person/:person_id/family 
-const getPersonFamliy = async function(req, res) {
+const getPersonFamliy = async function (req, res) {
   connection.query(`
     SELECT
         k.person_id,
@@ -700,7 +707,7 @@ const getPersonFamliy = async function(req, res) {
 }
 
 // PLACEHOLDER     Route 8: GET /person/:person_id/collaborators
-const getPersonCollaborators = async function(req, res) {
+const getPersonCollaborators = async function (req, res) {
   connection.query(`
     SELECT
       pe1.person_id AS person_id,
@@ -738,13 +745,13 @@ const getPersonCollaborators = async function(req, res) {
  *******************/
 
 // Route 10: GET /compare
-const compareAvsB = async function(req, res) {
+const compareAvsB = async function (req, res) {
   const nameA = req.query.person_name_a ?? '';
   const nameB = req.query.person_name_b ?? '';
 
   if (!nameA || !nameB) {
-      return res.json({});
-    }
+    return res.json({});
+  }
 
   connection.query(`
         WITH params(person_name) AS (
@@ -973,7 +980,7 @@ const compareAvsB = async function(req, res) {
 
 // Route 11: GET /analysis/nepo_participation_industry
 
-const getNepoParticipationIndustry = async function(req, res) {
+const getNepoParticipationIndustry = async function (req, res) {
   const start_year = req.query.start_year ?? 1900;
   const end_year = req.query.end_year ?? 2026;
 
@@ -1018,7 +1025,7 @@ const getNepoParticipationIndustry = async function(req, res) {
 }
 
 // Route 12: GET /analysis/top_nepo_collaborations
-const getTopNepoCollaborations = async function(req, res) {
+const getTopNepoCollaborations = async function (req, res) {
   connection.query(`
     SELECT
         p1.name AS person_name,
@@ -1050,7 +1057,7 @@ const getTopNepoCollaborations = async function(req, res) {
 }
 
 // Route 13: GET /analysis/nepo_industry_metrics
-const getNepoIndustryMetrics = async function(req, res) {
+const getNepoIndustryMetrics = async function (req, res) {
   connection.query(`
 SELECT
     t.start_year AS year,
@@ -1102,86 +1109,59 @@ ORDER BY
  *******************/
 
 // Route 14: GET /movies/relative_collaboration_movies
-const getRelativeCollaborationMovies = async function(req, res) {
+const getRelativeCollaborationMovies = async function (req, res) {
   const page = req.query.page;
   const pageSize = req.query.page_size ? req.query.page_size : 10
   const offsetStr = page && page > 0
-  ? `LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`
-  : '';
+    ? `LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`
+    : '';
 
   connection.query(`
-      WITH one_movie_multi_rows AS (
-        SELECT
-            rc.tconst,
-            t.primary_title,
-            t.start_year,
-            rc.person_id_1,
-            rc.person_name_1,
-            rc.person_id_2,
-            rc.person_name_2,
-            rc.kinship,
-            g.genre,
-            r.average_rating,
-            r.num_votes,
-            ma.award_id AS movie_award_id
-        FROM core.mv_relative_collaborator_pairs rc
-        JOIN core.title t
-          ON t.tconst = rc.tconst
-        LEFT JOIN core.genres g
-          ON g.tconst = rc.tconst
-        LEFT JOIN core.rating r
-          ON r.tconst = rc.tconst
-        LEFT JOIN core.movieaward ma
-          ON ma.tconst = rc.tconst
-        WHERE t.title_type = 'movie'
-      )
-
-
-      SELECT
-        tconst,
-        primary_title,
-        start_year,
-        COUNT(DISTINCT (person_id_1, person_id_2)) AS relative_pair_count,
-        JSONB_AGG(
-            DISTINCT JSONB_BUILD_OBJECT(
-                'person_name_1', person_name_1,
-                'person_name_2', person_name_2,
-                'kinship', kinship
-            )
-        ) AS relative_pairs,
-        COUNT(DISTINCT genre) AS genre_count,
-        COUNT(DISTINCT movie_award_id) AS movie_award_count,
-        AVG(average_rating) AS avg_rating,
-        SUM(num_votes) AS total_votes,
-        (
-            SELECT x.kinship
-            FROM (
-                SELECT kinship, COUNT(*) AS cnt
-                FROM ( SELECT DISTINCT tconst,person_id_1,person_id_2,kinship FROM one_movie_multi_rows) b
-                WHERE b.tconst = a.tconst
-                GROUP BY kinship
-                ORDER BY cnt DESC, kinship
-                LIMIT 1
-            ) x
-        ) AS most_frequent_kinship
-      FROM one_movie_multi_rows a
-      GROUP BY
-        tconst,
-        primary_title,
-        start_year
-      ORDER BY
-        relative_pair_count DESC,
-        primary_title
+SELECT
+    tconst,
+    primary_title,
+    start_year,
+    COUNT(DISTINCT (person_id_1, person_id_2)) AS relative_pair_count,
+    JSONB_AGG(
+        DISTINCT JSONB_BUILD_OBJECT(
+            'person_name_1', person_name_1,
+            'person_name_2', person_name_2,
+            'kinship', kinship
+        )
+    ) AS relative_pairs,
+    COUNT(DISTINCT genre) AS genre_count,
+    COUNT(DISTINCT movie_award_id) AS movie_award_count,
+    AVG(average_rating) AS avg_rating,
+    SUM(num_votes) AS total_votes,
+    (
+        SELECT x.kinship
+        FROM (
+            SELECT kinship, COUNT(*) AS cnt
+            FROM ( SELECT DISTINCT tconst,person_id_1,person_id_2,kinship FROM core.mv_one_movie_multi_rows) b
+            WHERE b.tconst = a.tconst
+            GROUP BY kinship
+            ORDER BY cnt DESC, kinship
+            LIMIT 1
+        ) x
+    ) AS most_frequent_kinship
+FROM core.mv_one_movie_multi_rows a
+GROUP BY
+    tconst,
+    primary_title,
+    start_year
+ORDER BY
+    relative_pair_count DESC,
+    primary_title
       ${offsetStr};
     `, (err, data) => {
-      if (err) {
-        console.log(err);
-        res.json({});
-      } else {
-        res.json(data.rows);
-      }
-    })
-  }
+    if (err) {
+      console.log(err);
+      res.json({});
+    } else {
+      res.json(data.rows);
+    }
+  })
+}
 
 
 module.exports = {

@@ -1723,6 +1723,51 @@ CREATE INDEX idx_mv_relative_collaborator_pairs_tconst
 ON core.mv_relative_collaborator_pairs (tconst);
 
 
+-------------------- {core.mv_one_movie_multi_rows} ---------------------
+-- OWNER: Xiang
+-- SOURCE: 
+-- DEPENDS ON: core.mv_relative_collaborator_pairs
+
+CREATE MATERIALIZED VIEW core.mv_one_movie_multi_rows AS
+SELECT
+    rc.tconst,
+    t.primary_title,
+    t.start_year,
+    rc.person_id_1,
+    rc.person_name_1,
+    rc.person_id_2,
+    rc.person_name_2,
+    rc.kinship,
+    g.genre,
+    r.average_rating,
+    r.num_votes,
+    ma.award_id AS movie_award_id
+FROM core.mv_relative_collaborator_pairs rc
+JOIN core.title t
+  ON t.tconst = rc.tconst
+LEFT JOIN core.genres g
+  ON g.tconst = rc.tconst
+LEFT JOIN core.rating r
+  ON r.tconst = rc.tconst
+LEFT JOIN core.movieaward ma
+  ON ma.tconst = rc.tconst
+WHERE t.title_type = 'movie';
+
+CREATE INDEX idx_mv_one_movie_multi_rows_tconst
+    ON core.mv_one_movie_multi_rows (tconst);
+
+CREATE INDEX idx_mv_one_movie_multi_rows_tconst_pair_kinship
+    ON core.mv_one_movie_multi_rows (tconst, person_id_1, person_id_2, kinship);
+
+CREATE INDEX idx_mv_one_movie_multi_rows_genre
+    ON core.mv_one_movie_multi_rows (genre);
+
+CREATE INDEX idx_mv_one_movie_multi_rows_movie_award_id
+    ON core.mv_one_movie_multi_rows (movie_award_id);
+
+
+
+
 -------------------- {core.collaboration} ---------------------
 -- OWNER: Bryan
 -- SOURCE: 
