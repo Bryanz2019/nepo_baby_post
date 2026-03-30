@@ -1748,11 +1748,15 @@ SELECT person_id, colleague_id, total_collaborations
 FROM pair_counts;
 
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mv_collab_person
- ON core.collaboration (person_id);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_collab_total_collaborations_desc
+    ON core.collaboration (total_collaborations DESC);
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mv_collab_colleague
- ON core.collaboration (colleague_id);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_person_nconst_name
+    ON core.person (nconst, name, person_id);
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_kinship_person_id
+    ON core.kinship (person_id);
+
 
 
 /**************************************************************
