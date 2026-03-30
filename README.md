@@ -21,7 +21,7 @@ The application is divided into several specialized views, each powered by dedic
 
 ### Search & Discovery
 * **Advanced Search:** Filter by year, family name, minimum nepo score, or specific career metrics.
-* **Endpoints:** `/search`, `/search/advanced`.
+* **Endpoints:** `/search`.
 
 ### Profile & Relationship Mapping
 * **Personalized Insights:** Detailed breakdown of a celebrity's career and "nepo score."
@@ -67,3 +67,19 @@ The **React** client-side application, including:
 * **Styling:** CSS/SCSS files defining the visual look and feel.
 
 ---
+
+## Getting Started
+
+To run the website locally, you need to start both the server and the frontend.
+
+### 1. Start the Server
+Navigate to the server directory and run:
+```bash
+npm run dev
+```
+
+### 2. Start the Frontend
+Open a new terminal, navigate to the frontend directory, and run:
+```bash
+npm run dev
+```
