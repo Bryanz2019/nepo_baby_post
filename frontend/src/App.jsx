@@ -10,6 +10,7 @@ import Person from "./pages/Person";
 import QuickFacts from "./pages/QuickFacts";
 import CareerDossier from "./pages/CareerDossier";
 import TheScore from './pages/TheScore';
+import IndustryPage from './pages/IndustryPage';
 import FamilyTree from "./pages/FamilyTree";
 
 function App() {
@@ -25,6 +26,8 @@ function App() {
             <Route path="/the_score" element={<TheScore />} />
             <Route path='/nepo_pair' element={<NepoPair />} />
             <Route path='/collaborations' element={<Collaborations />} />
+            <Route path='/industry' element={<IndustryPage />} />
+
             <Route path='/demo' element={<Demo />} />
             <Route path='/person/:id' element={<Person />} >
               <Route index element={<QuickFacts />} />

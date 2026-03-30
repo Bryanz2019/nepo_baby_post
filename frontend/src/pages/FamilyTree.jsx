@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router';
+import { useParams, useNavigate } from 'react-router';
 import config from '../config.json';
 
 function FamilyTree() {
   const { id } = useParams();
   const [data, setData] = useState(null);
+  let navigate = useNavigate();
 
   useEffect(() => {
       fetch(`http://${config.server_host}:${config.server_port}/person/${id}/family`)
@@ -19,6 +20,7 @@ function FamilyTree() {
   if (!data) {
       return <div className='p-6'>Loading...</div>
   }
+  console.log('Family tree data:', data);
 
   return (
     <>
@@ -34,7 +36,7 @@ function FamilyTree() {
           </div>
           <div className='flex flex-row flex-wrap py-4 px-6 gap-8 justify-start'>
             {data !== null && data.map((member, idx) => (
-              <div key={idx} className='flex flex-col items-center gap-0.5 w-32 relative'>
+              <div key={idx} className='flex flex-col items-center gap-0.5 w-32 relative' onClick={() => {navigate(`/person/${member.related_person_id}`);}}>
                 <div className='bg-red w-2 h-2 border-1 border-paper rounded-full absolute -top-1'></div>
                 <img
                   src={member.related_person_image_url}

@@ -652,24 +652,50 @@ GROUP BY
 const getPersonFamliy = async function (req, res) {
   connection.query(`
     SELECT
-      k.person_id,
-      p1.name AS person_name,
-      ns1.nepo_score AS person_nepo_score,
-      k.related_person_id,
-      p2.name AS related_person_name,
-      ns2.nepo_score AS related_person_nepo_score,
-      COALESCE(
+        k.person_id,
+        p1.name AS person_name,
+        ns1.nepo_score AS person_nepo_score,
+        k.related_person_id,
+        p2.name AS related_person_name,
+        ns2.nepo_score AS related_person_nepo_score,
+        COALESCE(
         p2.image_url,
         'https://static.wikia.nocookie.net/pbskidsgo/images/5/57/Curious-George.jpg/revision/latest/scale-to-width-down/250?cb=20120712224008'
-      ) AS related_person_image_url,
-      k.kinship
+        ) AS related_person_image_url,
+        k.kinship,
+        k.degree,
+        k.gen_delta
     FROM core.kinship k
-      JOIN core.person p1 ON k.person_id = p1.person_id
-      JOIN core.person p2 ON k.related_person_id = p2.person_id
-      JOIN core.neposcore ns1 ON k.person_id = ns1.person_id
-      JOIN core.neposcore ns2 ON k.related_person_id = ns2.person_id
+        JOIN core.person p1 ON k.person_id = p1.person_id
+        JOIN core.person p2 ON k.related_person_id = p2.person_id
+        JOIN core.neposcore ns1 ON k.person_id = ns1.person_id
+        JOIN core.neposcore ns2 ON k.related_person_id = ns2.person_id
     WHERE k.person_id = '${req.params.person_id}'
-    ORDER BY k.degree ASC, k.gen_delta DESC;
+
+    UNION
+
+    SELECT
+        r.person_id,
+        p1.name AS person_name,
+        ns1.nepo_score AS person_nepo_score,
+        r.related_person_id,
+        p2.name AS related_person_name,
+        ns2.nepo_score AS related_person_nepo_score,
+        COALESCE (
+            p2.image_url,
+            'https://static.wikia.nocookie.net/pbskidsgo/images/5/57/Curious-George.jpg/revision/latest/scale-to-width-down/250?cb=20120712224008'
+        ) AS related_person_image_url,
+        'SPOUSE' AS kinship,
+        0 AS degree,
+        0 AS gen_delta
+    FROM core.relationship r
+        JOIN core.person p1 ON r.person_id = p1.person_id
+        JOIN core.person p2 ON r.related_person_id = p2.person_id
+        JOIN core.neposcore ns1 ON r.person_id = ns1.person_id
+        JOIN core.neposcore ns2 ON r.related_person_id = ns2.person_id
+    WHERE r.person_id = '${req.params.person_id}' AND
+        r.relationship = 'spouse'
+    ORDER BY degree ASC, gen_delta DESC;
   `, (err, data) => {
     if (err) {
       console.log(err);
@@ -963,33 +989,30 @@ const getNepoParticipationIndustry = async function (req, res) {
   }
 
   connection.query(`
-    WITH nepoflag AS (
-      SELECT DISTINCT k.person_id
-      FROM core.kinship k
-      LEFT JOIN core.person p
-          ON p.person_id = k.related_person_id
-      WHERE p.nconst IS NOT NULL
+    WITH NepoNconsts AS (
+        SELECT DISTINCT p1.nconst
+        FROM core.kinship k
+            JOIN core.person p1 ON p1.person_id = k.person_id
+            JOIN core.person p2 ON p2.person_id = k.related_person_id
+        WHERE p2.nconst IS NOT NULL AND
+            k.kinship IN ('PARENT', 'GRANDPARENT', 'AUNT_UNCLE', 'GREAT_AUNT_UNCLE',
+                            'ANCESTOR', 'COUSIN_1ST_1R_UP', 'COUSIN_1ST_2R_UP', 'COUSIN_2ND_1R_UP')
     ),
-    YearlyStats AS (
-      SELECT
-        t.start_year AS release_year,
-        COUNT(DISTINCT t.tconst) AS total_movie_count,
-        COUNT(DISTINCT CASE
-            WHEN n.person_id IS NOT NULL THEN t.tconst
-        END) AS movies_with_nepo_participation
-      FROM core.title t
-          LEFT JOIN core.principal tp ON t.tconst = tp.tconst
-          LEFT JOIN core.person p ON tp.nconst = p.nconst
-          LEFT JOIN nepoflag n ON p.person_id = n.person_id
-    WHERE t.title_type = 'movie' AND t.start_year IS NOT NULL
-    GROUP BY t.start_year
+    NepoMovies AS (
+        SELECT DISTINCT tp.tconst
+        FROM core.principal tp
+            JOIN core.person p ON tp.nconst = p.nconst
+        WHERE tp.nconst IN (SELECT nconst FROM NepoNconsts)
     )
     SELECT
-    release_year,
-    movies_with_nepo_participation,
-    total_movie_count
-    FROM YearlyStats
-    WHERE release_year BETWEEN ${start_year} AND ${end_year}
+        t.start_year AS release_year,
+        COUNT(nm.tconst) AS movies_with_nepo_participation,
+        COUNT(t.tconst) AS total_movie_count
+    FROM core.title t
+        LEFT JOIN NepoMovies nm ON t.tconst = nm.tconst
+    WHERE t.title_type = 'movie' AND
+          t.start_year BETWEEN ${start_year} AND ${end_year}
+    GROUP BY t.start_year
     ORDER BY release_year ASC;
   `, (err, data) => {
     if (err) {
@@ -1004,38 +1027,25 @@ const getNepoParticipationIndustry = async function (req, res) {
 // Route 12: GET /analysis/top_nepo_collaborations
 const getTopNepoCollaborations = async function (req, res) {
   connection.query(`
-SELECT
- p1.name AS person_name,
- p2.name AS colleague_name,
- c.total_collaborations
-FROM core.collaboration c
-  JOIN core.person p1 ON c.person_id = p1.nconst
-  JOIN core.person p2 ON c.colleague_id = p2.nconst
-WHERE EXISTS (
-  SELECT 1
-  FROM core.kinship k
-      LEFT JOIN core.person p ON p.person_id = k.related_person_id
-  WHERE p.nconst IS NOT NULL AND
-        k.person_id = p1.person_id AND (
-          k.kinship = 'PARENT' OR k.kinship = 'GRANDPARENT' OR
-          k.kinship = 'AUNT_UNCLE' OR k.kinship = 'GREAT_AUNT_UNCLE' OR
-          k.kinship = 'ANCESTOR' OR k.kinship = 'COUSIN_1ST_1R_UP' OR
-          k.kinship = 'COUSIN_1ST_2R_UP' or k.kinship = 'COUSIN_2ND_1R_UP'
-        )
-) AND EXISTS (
-  SELECT 1
-  FROM core.kinship k
-      LEFT JOIN core.person p ON p.person_id = k.related_person_id
-  WHERE p.nconst IS NOT NULL AND
-        k.person_id = p2.person_id AND (
-          k.kinship = 'PARENT' OR k.kinship = 'GRANDPARENT' OR
-          k.kinship = 'AUNT_UNCLE' OR k.kinship = 'GREAT_AUNT_UNCLE' OR
-          k.kinship = 'ANCESTOR' OR k.kinship = 'COUSIN_1ST_1R_UP' OR
-          k.kinship = 'COUSIN_1ST_2R_UP' or k.kinship = 'COUSIN_2ND_1R_UP'
-        )
-)
-ORDER BY total_collaborations DESC,person_name ASC
-LIMIT 25;
+    SELECT
+        p1.name AS person_name,
+        p2.name AS colleague_name,
+        c.total_collaborations
+    FROM core.collaboration c
+        JOIN core.person p1 ON c.person_id = p1.nconst
+        JOIN core.person p2 ON c.colleague_id = p2.nconst
+    WHERE EXISTS (
+        SELECT 1 FROM core.kinship k
+        WHERE k.person_id = p1.person_id
+        AND k.kinship IN ('PARENT', 'GRANDPARENT', 'AUNT_UNCLE', 'GREAT_AUNT_UNCLE', 'ANCESTOR', 'COUSIN_1ST_1R_UP', 'COUSIN_1ST_2R_UP', 'COUSIN_2ND_1R_UP')
+    )
+    AND EXISTS (
+        SELECT 1 FROM core.kinship k
+        WHERE k.person_id = p2.person_id
+        AND k.kinship IN ('PARENT', 'GRANDPARENT', 'AUNT_UNCLE', 'GREAT_AUNT_UNCLE', 'ANCESTOR', 'COUSIN_1ST_1R_UP', 'COUSIN_1ST_2R_UP', 'COUSIN_2ND_1R_UP')
+    )
+    ORDER BY c.total_collaborations DESC, person_name ASC
+    LIMIT 25;
   `, (err, data) => {
     if (err) {
       console.log(err);
@@ -1049,65 +1059,41 @@ LIMIT 25;
 // Route 13: GET /analysis/nepo_industry_metrics
 const getNepoIndustryMetrics = async function (req, res) {
   connection.query(`
-    WITH nepo_flag AS (
-      SELECT
-          p.person_id,
-          CASE
-              WHEN ns.nepo_score > 0 THEN 'Nepo Baby'
-              ELSE 'Non-Nepo'
-              END AS nepo_status
-      FROM core.person p
-                LEFT JOIN core.neposcore ns
-                          ON ns.person_id = p.person_id
-    ),
+SELECT
+    t.start_year AS year,
+    pr.category AS profession,
+    CASE
+        WHEN COALESCE(ns.nepo_score, 0) > 0 THEN 'Nepo Baby'
+        ELSE 'Non-Nepo'
+        END AS nepo_status,
 
-        role_data AS (
-            SELECT
-                t.start_year AS year,
-                pr.category AS profession,
-                pr.ordering,
-                pr.tconst,
-                r.average_rating,
-                r.num_votes,
-                nf.nepo_status
-            FROM core.principal pr
-                    JOIN core.title t
-                          ON t.tconst = pr.tconst
-                    LEFT JOIN core.rating r
-                              ON r.tconst = pr.tconst
-                    JOIN core.person p
-                          ON p.nconst = pr.nconst
-                    JOIN nepo_flag nf
-                          ON nf.person_id = p.person_id
-            WHERE t.start_year IS NOT NULL
-        )
+    COUNT(*) AS role_count,
+    COUNT(DISTINCT pr.tconst) AS movie_count,
+    AVG(pr.ordering)::numeric(10,2) AS avg_credit_order,
+    AVG(r.average_rating)::numeric(10,2) AS avg_rating,
+    AVG(r.num_votes)::numeric(12,2) AS avg_votes
 
-    SELECT
-      year,
-      profession,
-      nepo_status,
-
-      COUNT(*) AS role_count,
-
-      COUNT(DISTINCT tconst) AS movie_count,
-
-      AVG(ordering)::numeric(10,2) AS avg_credit_order,
-
-      AVG(average_rating)::numeric(10,2) AS avg_rating,
-
-      AVG(num_votes)::numeric(12,2) AS avg_votes
-
-    FROM role_data
-
-    GROUP BY
-      year,
-      profession,
-      nepo_status
-
-    ORDER BY
-      year,
-      profession,
-      nepo_status;
+FROM core.principal pr
+         JOIN core.title t
+              ON t.tconst = pr.tconst
+         JOIN core.person p
+              ON p.nconst = pr.nconst
+         LEFT JOIN core.neposcore ns
+                   ON ns.person_id = p.person_id
+         LEFT JOIN core.rating r
+                   ON r.tconst = pr.tconst
+WHERE t.start_year IS NOT NULL
+GROUP BY
+    t.start_year,
+    pr.category,
+    CASE
+        WHEN COALESCE(ns.nepo_score, 0) > 0 THEN 'Nepo Baby'
+        ELSE 'Non-Nepo'
+        END
+ORDER BY
+    t.start_year,
+    pr.category,
+    nepo_status;
   `, (err, data) => {
     if (err) {
       console.log(err);

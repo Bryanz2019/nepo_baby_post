@@ -16,7 +16,7 @@ function CareerDossier() {
           <div className='subheader-medium text-ink'>Not all Nepo babies are created equal.</div>
         </div>
 
-        <div className='h-[40vh] overflow-y-auto'>
+        <div className='max-h-[40vh] overflow-y-auto'>
           {data.top_titles !== null && data.top_titles.map((title, idx) => (
             <div key={idx} className='mx-6 mt-4 p-3 border border-red bg-red/6'>
               <div className='label-medium text-ink pb-1 px-2'>{title.primary_title? title.primary_title : 'N/A'}

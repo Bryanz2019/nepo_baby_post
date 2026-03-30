@@ -16,7 +16,7 @@ function Person() {
             .then(resJson => {
                 const person = resJson[0];
                 if (person) {
-                    const formatted = person.professions.split(',').map(
+                    const formatted = person.professions?.split(',').map(
                       s => s.trim().replaceAll('_',' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
                     ).join(', ');
                     setData({ ...person, professions: formatted });
