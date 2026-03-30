@@ -1052,65 +1052,41 @@ const getTopNepoCollaborations = async function(req, res) {
 // Route 13: GET /analysis/nepo_industry_metrics
 const getNepoIndustryMetrics = async function(req, res) {
   connection.query(`
-    WITH nepo_flag AS (
-      SELECT
-          p.person_id,
-          CASE
-              WHEN ns.nepo_score > 0 THEN 'Nepo Baby'
-              ELSE 'Non-Nepo'
-              END AS nepo_status
-      FROM core.person p
-                LEFT JOIN core.neposcore ns
-                          ON ns.person_id = p.person_id
-    ),
+SELECT
+    t.start_year AS year,
+    pr.category AS profession,
+    CASE
+        WHEN COALESCE(ns.nepo_score, 0) > 0 THEN 'Nepo Baby'
+        ELSE 'Non-Nepo'
+        END AS nepo_status,
 
-        role_data AS (
-            SELECT
-                t.start_year AS year,
-                pr.category AS profession,
-                pr.ordering,
-                pr.tconst,
-                r.average_rating,
-                r.num_votes,
-                nf.nepo_status
-            FROM core.principal pr
-                    JOIN core.title t
-                          ON t.tconst = pr.tconst
-                    LEFT JOIN core.rating r
-                              ON r.tconst = pr.tconst
-                    JOIN core.person p
-                          ON p.nconst = pr.nconst
-                    JOIN nepo_flag nf
-                          ON nf.person_id = p.person_id
-            WHERE t.start_year IS NOT NULL
-        )
+    COUNT(*) AS role_count,
+    COUNT(DISTINCT pr.tconst) AS movie_count,
+    AVG(pr.ordering)::numeric(10,2) AS avg_credit_order,
+    AVG(r.average_rating)::numeric(10,2) AS avg_rating,
+    AVG(r.num_votes)::numeric(12,2) AS avg_votes
 
-    SELECT
-      year,
-      profession,
-      nepo_status,
-
-      COUNT(*) AS role_count,
-
-      COUNT(DISTINCT tconst) AS movie_count,
-
-      AVG(ordering)::numeric(10,2) AS avg_credit_order,
-
-      AVG(average_rating)::numeric(10,2) AS avg_rating,
-
-      AVG(num_votes)::numeric(12,2) AS avg_votes
-
-    FROM role_data
-
-    GROUP BY
-      year,
-      profession,
-      nepo_status
-
-    ORDER BY
-      year,
-      profession,
-      nepo_status;
+FROM core.principal pr
+         JOIN core.title t
+              ON t.tconst = pr.tconst
+         JOIN core.person p
+              ON p.nconst = pr.nconst
+         LEFT JOIN core.neposcore ns
+                   ON ns.person_id = p.person_id
+         LEFT JOIN core.rating r
+                   ON r.tconst = pr.tconst
+WHERE t.start_year IS NOT NULL
+GROUP BY
+    t.start_year,
+    pr.category,
+    CASE
+        WHEN COALESCE(ns.nepo_score, 0) > 0 THEN 'Nepo Baby'
+        ELSE 'Non-Nepo'
+        END
+ORDER BY
+    t.start_year,
+    pr.category,
+    nepo_status;
   `, (err, data) => {
     if (err) {
       console.log(err);
