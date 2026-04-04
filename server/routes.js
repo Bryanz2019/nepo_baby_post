@@ -1128,9 +1128,9 @@ const getRelativeCollaborationMovies = async function (req, res) {
 
   connection.query(`
 SELECT
-    tconst,
-    primary_title,
-    start_year,
+    a.tconst,
+    a.primary_title,
+    a.start_year,
     COUNT(DISTINCT (person_id_1, person_id_2)) AS relative_pair_count,
     JSONB_AGG(
         DISTINCT JSONB_BUILD_OBJECT(
@@ -1143,22 +1143,21 @@ SELECT
     COUNT(DISTINCT movie_award_id) AS movie_award_count,
     AVG(average_rating) AS avg_rating,
     SUM(num_votes) AS total_votes,
-    (
-        SELECT x.kinship
-        FROM (
-            SELECT kinship, COUNT(*) AS cnt
-            FROM ( SELECT DISTINCT tconst,person_id_1,person_id_2,kinship FROM core.mv_one_movie_multi_rows) b
-            WHERE b.tconst = a.tconst
-            GROUP BY kinship
-            ORDER BY cnt DESC, kinship
-            LIMIT 1
-        ) x
-    ) AS most_frequent_kinship
+    k.most_frequent_kinship
 FROM core.mv_one_movie_multi_rows a
+LEFT JOIN (
+    SELECT tconst, kinship AS most_frequent_kinship
+    FROM (SELECT tconst, kinship, ROW_NUMBER() OVER (PARTITION BY tconst ORDER BY COUNT(*) DESC, kinship) AS rn
+          FROM ( SELECT DISTINCT tconst, person_id_1, person_id_2, kinship FROM core.mv_one_movie_multi_rows) d
+          GROUP BY tconst, kinship
+          ) x
+    WHERE rn = 1
+    ) k ON a.tconst = k.tconst
 GROUP BY
-    tconst,
-    primary_title,
-    start_year
+    a.tconst,
+    a.primary_title,
+    a.start_year,
+    k.most_frequent_kinship
 ORDER BY
     relative_pair_count DESC,
     primary_title
