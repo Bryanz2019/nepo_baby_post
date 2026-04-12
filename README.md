@@ -83,3 +83,9 @@ Open a new terminal, navigate to the frontend directory, and run:
 ```bash
 npm run dev
 ```
+
+---
+
+## Project Dependencies
+
+The fullstack application is implemented using **React** on the frontend and **Nodejs** for the backend. All of the data used by the application is stored on a **PostgreSQL** database, named ‘nepo’, hosted by **AWS RDS**.  In order to retrieve this data, the application backend implemented **REST APIs** using the **Expressjs** framework to communicate with the PostgreSQL database. We then used **Jest** and **Supertest** to validate the endpoint results to ensure all API routes exhibit the expected behavior. For the UI/UX aspect of the application, we used **Tailwind CSS**, **DaisyUI**, and the **Recharts library** to customize the CSS theme and components, and create visually appealing charts correspondingly.
