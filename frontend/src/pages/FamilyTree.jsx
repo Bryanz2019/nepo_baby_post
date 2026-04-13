@@ -8,7 +8,7 @@ function FamilyTree() {
   let navigate = useNavigate();
 
   useEffect(() => {
-      fetch(`http://${config.server_host}:${config.server_port}/person/${id}/family`)
+      fetch(`https://${config.server_host}/person/${id}/family`)
         .then(res => res.json())
         .then(resJson => {
           setData(resJson);

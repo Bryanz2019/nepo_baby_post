@@ -6,7 +6,7 @@ function Collaborations() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`http://${config.server_host}:${config.server_port}/analysis/top_nepo_collaborations`)
+    fetch(`https://${config.server_host}/analysis/top_nepo_collaborations`)
       .then(res => res.json())
       .then(resJson => {
         setPairs(resJson)

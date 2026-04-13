@@ -10,7 +10,7 @@ function StarFile() {
   useEffect(() => {
     if (!data?.person_id) return
     setLoading(true)
-    fetch(`http://${config.server_host}:${config.server_port}/person/${data.person_id}/collaborators`)
+    fetch(`https://${config.server_host}/person/${data.person_id}/collaborators`)
       .then(res => res.json())
       .then(resJson => {
         setCollaborators(resJson)

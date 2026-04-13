@@ -287,7 +287,7 @@ export default function ComparisonPage() {
     if (!leftName || !rightName) return;
     setLoading(true);
     setError(null);
-    fetch(`http://${config.server_host}:${config.server_port}/compare?person_name_a=${encodeURIComponent(leftName)}&person_name_b=${encodeURIComponent(rightName)}`)
+    fetch(`https://${config.server_host}/compare?person_name_a=${encodeURIComponent(leftName)}&person_name_b=${encodeURIComponent(rightName)}`)
       .then((r) => r.json())
       .then((d) => {
         setData(d);

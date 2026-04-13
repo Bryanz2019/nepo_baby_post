@@ -20,7 +20,7 @@ function Home() {
   const [familyDynasties, setFamilyDynasties] = useState([]);
 
   useEffect(() => {
-    fetch(`http://${config.server_host}:${config.server_port}/homepage/family_dynasties`)
+    fetch(`https://${config.server_host}/homepage/family_dynasties`)
       .then(res => res.json())
       .then(data => setFamilyDynasties(data));
   }, []);
@@ -28,7 +28,7 @@ function Home() {
   // top collaborations data state
   const [topNepoBabies, setTopNepoBabies] = useState([]);
   useEffect(() => {
-    fetch(`http://${config.server_host}:${config.server_port}/homepage/top_nepo_babies`)
+    fetch(`https://${config.server_host}/homepage/top_nepo_babies`)
       .then(res => res.json())
       .then(data => setTopNepoBabies(data));
   }, []);

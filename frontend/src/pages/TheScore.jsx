@@ -15,7 +15,7 @@ function TheScore() {
   const [selectedPerson, setSelectedPerson] = useState(null);
 
   useEffect(() => {
-    fetch(`http://${config.server_host}:${config.server_port}/homepage/top_nepo_babies`)
+    fetch(`https://${config.server_host}/homepage/top_nepo_babies`)
       .then(res => res.json())
       .then(resJson => {
         setSearchResults(Array.isArray(resJson) ? resJson : [])

@@ -45,7 +45,7 @@ function EvidenceBoard() {
 
 
   const handleSurpriseMe = async () => {
-    const response = await fetch(`http://${config.server_host}:${config.server_port}/homepage/surprise_me`);
+    const response = await fetch(`https://${config.server_host}/homepage/surprise_me`);
     const data = await response.json();
     navigate(`/person/${data.person_id}`);
   };
@@ -127,7 +127,7 @@ function EvidenceBoard() {
       return
     }
 
-    fetch(`http://${config.server_host}:${config.server_port}/search?keyword=${encodeURIComponent(initialKeyword)}&category=${encodeURIComponent(initialCategory)}`)
+    fetch(`https://${config.server_host}/search?keyword=${encodeURIComponent(initialKeyword)}&category=${encodeURIComponent(initialCategory)}`)
       .then(res => res.json())
       .then(resJson => setSearchResults(resJson))
   }, [initialKeyword, initialCategory])

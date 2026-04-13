@@ -11,7 +11,7 @@ function Person() {
     const [data, setData] = useState(null);
 
     useEffect(() => {
-        fetch(`http://${config.server_host}:${config.server_port}/person/${id}`)
+        fetch(`https://${config.server_host}/person/${id}`)
             .then(res => res.json())
             .then(resJson => {
                 const person = resJson[0];
