@@ -1797,7 +1797,7 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_collab_total_collaborations_desc
     ON core.collaboration (total_collaborations DESC);
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_person_nconst_name
-    ON core.person (nconst, name, person_id);
+    ON core.person (nconst, name, person_id, image_url);
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_kinship_person_id
     ON core.kinship (person_id);

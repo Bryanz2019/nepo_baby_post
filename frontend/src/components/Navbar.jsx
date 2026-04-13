@@ -23,7 +23,7 @@ function Navbar() {
           <li><NavLink to="/evidence_board" className={({ isActive }) => `px-4 py-1 label-medium [.active-link&]:bg-red [&.active-link]:text-paper text-subtle ${isActive ? 'active-link' : 'inactive-link'}`} onClick={() => handleTabClick('analysis')}>EVIDENCE BOARD</NavLink></li>
           <li><NavLink to="/the_score" className={({ isActive }) => `px-4 py-1 label-medium [.active-link&]:bg-red [&.active-link]:text-paper text-subtle ${isActive ? 'active-link' : 'inactive-link'}`} onClick={() => handleTabClick('score')}>THE SCORE</NavLink></li>
           <li><NavLink to="/collaborations" className={({ isActive }) => `px-4 py-1 label-medium [.active-link&]:bg-red [&.active-link]:text-paper text-subtle ${isActive ? 'active-link' : 'inactive-link'}`} onClick={() => handleTabClick('collaborations')}>COLLABORATIONS</NavLink></li>
-          <li><NavLink to="/demo" className={({ isActive }) => `px-4 py-1 label-medium [.active-link&]:bg-red [&.active-link]:text-paper text-subtle ${isActive ? 'active-link' : 'inactive-link'}`} onClick={() => handleTabClick('demo')}>DEMO: DO NOT DELETE</NavLink></li>
+          {/* <li><NavLink to="/demo" className={({ isActive }) => `px-4 py-1 label-medium [.active-link&]:bg-red [&.active-link]:text-paper text-subtle ${isActive ? 'active-link' : 'inactive-link'}`} onClick={() => handleTabClick('demo')}>DEMO: DO NOT DELETE</NavLink></li> */}
         </ul>
       </nav>
     </>
