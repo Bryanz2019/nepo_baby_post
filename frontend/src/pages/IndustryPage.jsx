@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import config from '../config.json'
 
 import {
   LineChart,
@@ -14,7 +15,7 @@ import {
 } from "recharts";
 import LeftPanel from "../components/LeftPanel";
 
-const API = "http://localhost:8080";
+const API = 'https://' + config.server_host;
 
 const EXCLUDED_PROFESSIONS = [
   "self",

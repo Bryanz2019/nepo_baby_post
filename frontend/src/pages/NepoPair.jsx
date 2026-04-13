@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import NepoTable from '../components/NepoTable';
+import config from '../config.json'
 
-const API_BASE = 'http://localhost:8080';
+const API_BASE = 'https://' + config.server_host;
 
 const RELATION_COLORS = {
   PARENT:             'var(--color-red)',
